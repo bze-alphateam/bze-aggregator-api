@@ -13,7 +13,11 @@ func Start() {
 	logger := logrus.New()
 	e := echo.New()
 
-	appCfg := config.NewAppConfig()
+	appCfg, err := config.NewAppConfig()
+	if err != nil {
+		logger.Fatalf("could not load app config: %v", err)
+	}
+
 	parsedLogLevel, err := logrus.ParseLevel(appCfg.Logging.Level)
 	if err != nil {
 		logger.Fatal("error on parsing logging level: %s", err)
@@ -26,7 +30,7 @@ func Start() {
 	//generates a unique id for each request
 	e.Use(middleware.RequestID())
 
-	ctrlFactory, err := factory.NewControllerFactory(logger)
+	ctrlFactory, err := factory.NewControllerFactory(logger, appCfg)
 	if err != nil {
 		logger.Fatalf("could not start server: %s", err)
 	}
