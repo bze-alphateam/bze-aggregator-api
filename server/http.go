@@ -29,6 +29,7 @@ func Start() {
 	e.Use(middleware.Recover())
 	//generates a unique id for each request
 	e.Use(middleware.RequestID())
+	e.Use(middleware.CORS())
 
 	ctrlFactory, err := factory.NewControllerFactory(logger, appCfg)
 	if err != nil {
