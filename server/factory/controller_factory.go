@@ -42,3 +42,17 @@ func (c *ControllerFactory) GetSupplyController() (*controller.SupplyController,
 
 	return controller.NewSupplyController(c.logger, service)
 }
+
+func (c *ControllerFactory) GetArticlesController() (*controller.ArticlesController, error) {
+	cache := appService.NewInMemoryCache()
+	if cache == nil {
+		return nil, fmt.Errorf("could not instantiate in memory cache")
+	}
+
+	service, err := appService.NewMediumService(c.logger, cache)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate supply service: %w", err)
+	}
+
+	return controller.NewArticlesController(c.logger, service)
+}

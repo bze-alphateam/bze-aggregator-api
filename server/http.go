@@ -41,9 +41,15 @@ func Start() {
 		logger.Fatalf("could not start server: %s", err)
 	}
 
+	articlesCtrl, err := ctrlFactory.GetArticlesController()
+	if err != nil {
+		logger.Fatalf("could not start server: %s", err)
+	}
+
 	// Routes
 	e.GET("/supply/total", supplyCtrl.TotalSupplyHandler)
 	e.GET("/supply/circulating", supplyCtrl.CirculatingSupplyHandler)
+	e.GET("/articles/medium", articlesCtrl.MediumArticlesHandler)
 
 	// Start server
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", appCfg.Server.Port)))
