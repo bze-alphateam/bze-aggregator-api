@@ -48,7 +48,7 @@ func Start() {
 
 	// Routes
 	e.GET("/api/supply/total", supplyCtrl.TotalSupplyHandler)
-	e.GET("/api//supply/circulating", supplyCtrl.CirculatingSupplyHandler)
+	e.GET("/api/supply/circulating", supplyCtrl.CirculatingSupplyHandler)
 	e.GET("/api/articles/medium", articlesCtrl.MediumArticlesHandler)
 
 	// Start server
