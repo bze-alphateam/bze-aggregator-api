@@ -47,9 +47,9 @@ func Start() {
 	}
 
 	// Routes
-	e.GET("/supply/total", supplyCtrl.TotalSupplyHandler)
-	e.GET("/supply/circulating", supplyCtrl.CirculatingSupplyHandler)
-	e.GET("/articles/medium", articlesCtrl.MediumArticlesHandler)
+	e.GET("/api/supply/total", supplyCtrl.TotalSupplyHandler)
+	e.GET("/api//supply/circulating", supplyCtrl.CirculatingSupplyHandler)
+	e.GET("/api/articles/medium", articlesCtrl.MediumArticlesHandler)
 
 	// Start server
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", appCfg.Server.Port)))
