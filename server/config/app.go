@@ -10,6 +10,14 @@ const (
 	defaultLoggingLevel = "info"
 )
 
+type CoingeckoConfig struct {
+	Host string
+}
+
+type PricesConfig struct {
+	Denominations string
+}
+
 type BlockchainConfig struct {
 	RestHost string
 	RpcHost  string
@@ -27,6 +35,8 @@ type AppConfig struct {
 	Server     Server
 	Logging    Logging
 	Blockchain BlockchainConfig
+	Prices     PricesConfig
+	Coingecko  CoingeckoConfig
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -42,9 +52,18 @@ func NewAppConfig() (*AppConfig, error) {
 		return nil, errors.New("BLOCKCHAIN_REST_HOST not found in .env")
 	}
 
+	cg, ok := envFile["COINGECKO_HOST"]
+	if !ok {
+		return nil, errors.New("COINGECKO_HOST not found in .env")
+	}
+
 	cfg.Blockchain = BlockchainConfig{
 		RestHost: rest,
 		RpcHost:  rpc,
+	}
+
+	cfg.Coingecko = CoingeckoConfig{
+		Host: cg,
 	}
 
 	return cfg, nil
@@ -75,12 +94,20 @@ func loadDefaultConfig(env map[string]string, err error) *AppConfig {
 		logLevel = defaultLoggingLevel
 	}
 
+	prices, ok := env["COINGECKO_PRICE_IDS"]
+	if !ok {
+		prices = ""
+	}
+
 	return &AppConfig{
 		Server: Server{
 			Port: port,
 		},
 		Logging: Logging{
 			Level: logLevel,
+		},
+		Prices: PricesConfig{
+			Denominations: prices,
 		},
 	}
 }

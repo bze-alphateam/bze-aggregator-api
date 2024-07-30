@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/controller"
 	appService "github.com/bze-alphateam/bze-aggregator-api/app/service"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	"github.com/sirupsen/logrus"
 )
@@ -30,7 +31,7 @@ func (c *ControllerFactory) GetSupplyController() (*controller.SupplyController,
 		return nil, fmt.Errorf("could not instantiate in memory cache")
 	}
 
-	dp, err := appService.NewBlockchainQueryClient(c.config.Blockchain.RestHost)
+	dp, err := client.NewBlockchainQueryClient(c.config.Blockchain.RestHost)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate blockchain query client: %w", err)
 	}
@@ -55,4 +56,23 @@ func (c *ControllerFactory) GetArticlesController() (*controller.ArticlesControl
 	}
 
 	return controller.NewArticlesController(c.logger, service)
+}
+
+func (c *ControllerFactory) GetPricesController() (*controller.PricesController, error) {
+	cache := appService.NewInMemoryCache()
+	if cache == nil {
+		return nil, fmt.Errorf("could not instantiate in memory cache")
+	}
+
+	cgClient, err := client.NewCoingeckoClient(c.config.Coingecko.Host, c.config.Prices.Denominations)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate coingecko client: %w", err)
+	}
+
+	service, err := appService.NewPricesService(cache, cgClient, c.logger)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate prices service: %w", err)
+	}
+
+	return controller.NewPricesController(c.logger, service)
 }
