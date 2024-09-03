@@ -103,6 +103,7 @@ func (h *Health) getCachedMarketHealth(marketId string, minutesAgo int) *dto.Mar
 	minDateNeeded := currentTime.Add(-time.Duration(minutesAgo) * time.Minute)
 
 	if minDateNeeded.Before(mh.LastTrade) {
+		mh.IsHealthy = true
 		return &mh
 	}
 
