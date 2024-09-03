@@ -51,11 +51,17 @@ func Start() {
 		logger.Fatalf("could not start server: %s", err)
 	}
 
+	healthCtrl, err := ctrlFactory.GetHealthController()
+	if err != nil {
+		logger.Fatalf("could not start server: %s", err)
+	}
+
 	// Routes
 	e.GET("/api/supply/total", supplyCtrl.TotalSupplyHandler)
 	e.GET("/api/supply/circulating", supplyCtrl.CirculatingSupplyHandler)
 	e.GET("/api/articles/medium", articlesCtrl.MediumArticlesHandler)
 	e.GET("/api/prices", pricesCtrl.PricesHandler)
+	e.GET("/api/health/market", healthCtrl.DexMarketCheckHandler)
 
 	// Start server
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", appCfg.Server.Port)))

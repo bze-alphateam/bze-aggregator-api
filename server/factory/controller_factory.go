@@ -76,3 +76,22 @@ func (c *ControllerFactory) GetPricesController() (*controller.PricesController,
 
 	return controller.NewPricesController(c.logger, service)
 }
+
+func (c *ControllerFactory) GetHealthController() (*controller.HealthCheckController, error) {
+	cache := appService.NewInMemoryCache()
+	if cache == nil {
+		return nil, fmt.Errorf("could not instantiate in memory cache")
+	}
+
+	dp, err := client.NewBlockchainQueryClient(c.config.Blockchain.RestHost)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate blockchain query client: %w", err)
+	}
+
+	service, err := appService.NewHealthService(c.logger, cache, dp)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate prices service: %w", err)
+	}
+
+	return controller.NewHealthCheckController(c.logger, service)
+}

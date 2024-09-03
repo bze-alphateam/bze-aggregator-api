@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 )
@@ -12,6 +12,7 @@ import (
 const (
 	supplyPath        = "/cosmos/bank/v1beta1/supply"
 	communityPoolPath = "/cosmos/distribution/v1beta1/community_pool"
+	marketHistoryPath = "/bze/tradebin/v1/market_history"
 
 	denom = "ubze"
 )
@@ -50,7 +51,7 @@ func (c *BlockchainQueryClient) GetTotalSupply() (int64, error) {
 		return 0, fmt.Errorf("received non-OK status code: %d", resp.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 
 		return 0, fmt.Errorf("error reading response body: %w", err)
@@ -90,7 +91,7 @@ func (c *BlockchainQueryClient) GetCommunityPoolTotal() (float64, error) {
 		return 0, fmt.Errorf("received non-OK status code: %d", resp.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, fmt.Errorf("error reading response body: %w", err)
 	}
@@ -112,4 +113,35 @@ func (c *BlockchainQueryClient) GetCommunityPoolTotal() (float64, error) {
 	}
 
 	return 0, fmt.Errorf("denom %s not found in community pool", denom)
+}
+
+func (c *BlockchainQueryClient) GetMarketHistory(marketId string, limit int) ([]dto.HistoryOrder, error) {
+	url := c.getMarketHistoryUrl(marketId, limit)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error making request to the blockchain: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("received non-OK status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+
+	var data dto.HistoryResponse
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling response data: %w", err)
+	}
+
+	return data.List, nil
+}
+
+func (c *BlockchainQueryClient) getMarketHistoryUrl(marketId string, limit int) string {
+	return fmt.Sprintf("%s%s?market=%s&pagination.limit=%d&pagination.reverse=true", c.Host, marketHistoryPath, marketId, limit)
 }
