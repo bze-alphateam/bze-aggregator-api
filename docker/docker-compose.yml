@@ -1,0 +1,14 @@
+
+services:
+  db:
+    env_file:
+      - ./mysql/mysql.env
+    image: mysql
+    ports:
+      - "${MYSQL_LOCAL_PORT}:${MYSQL_PORT}"
+    volumes:
+      - "./.data/db:/var/lib/mysql"
+  redis:
+    image: "redis"
+    ports:
+      - "${REDIS_LOCAL_PORT}:${REDIS_PORT}"
