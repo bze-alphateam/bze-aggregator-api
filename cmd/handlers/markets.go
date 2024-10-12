@@ -1,16 +1,19 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/data_provider"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
-	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/sirupsen/logrus"
 )
 
 type grpc interface {
 	GetTradebinQueryClient() (tradebinTypes.QueryClient, error)
 	CloseConnection()
+}
+
+type marketDataProvider interface {
+	GetAllMarkets() ([]tradebinTypes.Market, error)
 }
 
 type marketStorage interface {
@@ -33,36 +36,25 @@ func NewMarketsSync(logger logrus.FieldLogger, grpc grpc, storage marketStorage)
 
 func (s *MarketsSync) SyncMarkets() {
 	defer s.grpc.CloseConnection()
-	s.logger.Info("getting tradebin query client")
-	qc, err := s.grpc.GetTradebinQueryClient()
+	//initializing market provider here so we can control grpc connection closing
+	dp, err := data_provider.NewMarketProvider(s.grpc, s.logger)
 	if err != nil {
-		s.logger.WithError(err).Error("could not get tradebin query client")
+		s.logger.WithError(err).Error("error initializing data provider")
 		return
 	}
 
-	params := s.getMarketsParams()
-	s.logger.Info("fetching markets from blockchain")
-
-	res, err := qc.MarketAll(context.Background(), params)
+	res, err := dp.GetAllMarkets()
 	if err != nil {
 		s.logger.WithError(err).Error("could not get markets")
 		return
 	}
 	s.logger.Info("markets fetched")
 
-	err = s.storage.SaveMarkets(res.GetMarket())
+	err = s.storage.SaveMarkets(res)
 	if err != nil {
 		s.logger.WithError(err).Error("could not save markets")
 		return
 	}
 
 	s.logger.Info("markets sync finished")
-}
-
-func (s *MarketsSync) getMarketsParams() *tradebinTypes.QueryAllMarketRequest {
-	return &tradebinTypes.QueryAllMarketRequest{
-		Pagination: &query.PageRequest{
-			Limit: 10000,
-		},
-	}
 }
