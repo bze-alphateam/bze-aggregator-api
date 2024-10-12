@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	"github.com/bze-alphateam/bze-aggregator-api/server/factory"
 	"github.com/labstack/echo/v4"
@@ -10,20 +11,14 @@ import (
 )
 
 func Start() {
-	logger := logrus.New()
 	e := echo.New()
 
 	appCfg, err := config.NewAppConfig()
 	if err != nil {
-		logger.Fatalf("could not load app config: %v", err)
+		logrus.Fatalf("could not load app config: %v", err)
 	}
 
-	parsedLogLevel, err := logrus.ParseLevel(appCfg.Logging.Level)
-	if err != nil {
-		logger.Fatal("error on parsing logging level: %s", err)
-	}
-
-	logger.SetLevel(parsedLogLevel)
+	logger, err := internal.NewLogger(appCfg)
 
 	// Middleware
 	e.Use(middleware.Recover())

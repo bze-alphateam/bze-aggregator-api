@@ -21,6 +21,7 @@ type PricesConfig struct {
 type BlockchainConfig struct {
 	RestHost string
 	RpcHost  string
+	GrpcHost string
 }
 
 type Logging struct {
@@ -52,6 +53,11 @@ func NewAppConfig() (*AppConfig, error) {
 		return nil, errors.New("BLOCKCHAIN_REST_HOST not found in .env")
 	}
 
+	grpc, ok := envFile["BLOCKCHAIN_GRPC_HOST"]
+	if !ok {
+		return nil, errors.New("BLOCKCHAIN_GRPC_HOST not found in .env")
+	}
+
 	cg, ok := envFile["COINGECKO_HOST"]
 	if !ok {
 		return nil, errors.New("COINGECKO_HOST not found in .env")
@@ -60,6 +66,7 @@ func NewAppConfig() (*AppConfig, error) {
 	cfg.Blockchain = BlockchainConfig{
 		RestHost: rest,
 		RpcHost:  rpc,
+		GrpcHost: grpc,
 	}
 
 	cfg.Coingecko = CoingeckoConfig{
