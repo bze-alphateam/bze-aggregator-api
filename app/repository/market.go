@@ -18,7 +18,7 @@ func NewMarketRepository(db internal.Database) (*MarketRepository, error) {
 	return &MarketRepository{db: db}, nil
 }
 
-func (r *MarketRepository) SaveIfNotExists(items []entity.Market) error {
+func (r *MarketRepository) SaveIfNotExists(items []*entity.Market) error {
 	query := `
 	INSERT INTO market (
 		market_id, base, quote, created_by, i_created_at

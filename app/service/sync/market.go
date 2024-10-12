@@ -9,7 +9,7 @@ import (
 )
 
 type marketRepo interface {
-	SaveIfNotExists(items []entity.Market) error
+	SaveIfNotExists(items []*entity.Market) error
 }
 
 type Market struct {
@@ -31,10 +31,10 @@ func NewMarketSync(logger logrus.FieldLogger, storage marketRepo) (*Market, erro
 func (m *Market) SaveMarkets(list []tradebinTypes.Market) error {
 	m.logger.Infof("saving %d markets", len(list))
 
-	entities := make([]entity.Market, len(list)-1)
+	var entities []*entity.Market
 	for _, source := range list {
 		target := converter.NewMarketEntity(&source)
-		entities = append(entities, *target)
+		entities = append(entities, target)
 	}
 
 	err := m.storage.SaveIfNotExists(entities)
