@@ -1,8 +1,8 @@
 package service
 
 import (
-	"errors"
 	"fmt"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/sirupsen/logrus"
 	"math"
 	"strconv"
@@ -36,7 +36,7 @@ type Supply struct {
 
 func NewSupplyService(logger logrus.FieldLogger, cache Cache, provider RestDataProvider) (*Supply, error) {
 	if logger == nil || cache == nil || provider == nil {
-		return nil, errors.New("invalid dependencies provided to supply service")
+		return nil, internal.NewInvalidDependenciesErr("NewSupplyService")
 	}
 
 	return &Supply{

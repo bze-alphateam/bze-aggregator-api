@@ -6,8 +6,9 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync all markets & data",
 	Long: `List of sync commands:
-1. Create UTXOs command 
+Usage:
 ./bze-agg sync markets
+./bze-agg sync orders
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Usage()

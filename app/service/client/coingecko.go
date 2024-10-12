@@ -2,9 +2,9 @@ package client
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"io/ioutil"
 	"net/http"
 )
@@ -23,7 +23,7 @@ type Coingecko struct {
 
 func NewCoingeckoClient(host, ids string) (*Coingecko, error) {
 	if len(host) == 0 {
-		return nil, errors.New("invalid host provided to Coingecko client")
+		return nil, internal.NewInvalidDependenciesErr("NewCoingeckoClient")
 	}
 
 	//use default value if none provided

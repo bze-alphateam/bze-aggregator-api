@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"errors"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -19,7 +19,7 @@ type SupplyController struct {
 
 func NewSupplyController(logger logrus.FieldLogger, service SupplyService) (*SupplyController, error) {
 	if logger == nil || service == nil {
-		return nil, errors.New("invalid dependencies provided to supply controller")
+		return nil, internal.NewInvalidDependenciesErr("NewSupplyController")
 	}
 
 	return &SupplyController{service: service, logger: logger}, nil

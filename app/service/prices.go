@@ -2,8 +2,8 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/sirupsen/logrus"
 	"time"
 )
@@ -28,7 +28,7 @@ type PricesService struct {
 
 func NewPricesService(cache Cache, dataProvider PriceProvider, logger logrus.FieldLogger) (*PricesService, error) {
 	if dataProvider == nil || cache == nil || logger == nil {
-		return nil, errors.New("invalid dependencies provided to price service")
+		return nil, internal.NewInvalidDependenciesErr("NewPricesService")
 	}
 
 	return &PricesService{

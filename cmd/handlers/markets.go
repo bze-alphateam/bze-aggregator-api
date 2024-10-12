@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/data_provider"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
 )
@@ -10,10 +10,6 @@ import (
 type grpc interface {
 	GetTradebinQueryClient() (tradebinTypes.QueryClient, error)
 	CloseConnection()
-}
-
-type marketDataProvider interface {
-	GetAllMarkets() ([]tradebinTypes.Market, error)
 }
 
 type marketStorage interface {
@@ -26,9 +22,9 @@ type MarketsSync struct {
 	logger  logrus.FieldLogger
 }
 
-func NewMarketsSync(logger logrus.FieldLogger, grpc grpc, storage marketStorage) (*MarketsSync, error) {
+func NewMarketsSyncHandler(logger logrus.FieldLogger, grpc grpc, storage marketStorage) (*MarketsSync, error) {
 	if grpc == nil || logger == nil || storage == nil {
-		return nil, fmt.Errorf("invalid dependencies provided to NewMarketsSync")
+		return nil, internal.NewInvalidDependenciesErr("NewMarketsSyncHandler")
 	}
 
 	return &MarketsSync{grpc: grpc, logger: logger, storage: storage}, nil

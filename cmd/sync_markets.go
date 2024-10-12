@@ -9,8 +9,12 @@ import (
 
 var syncMarketsCmd = &cobra.Command{
 	Use:   "markets",
+	Args:  cobra.ExactArgs(0),
 	Short: "Sync available markets",
-	Long:  `Sync available markets from blockchain into the database`,
+	Long: `Sync available markets from blockchain into the database
+Usage:
+./bze-agg sync markets
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.NewAppConfig()
 		if err != nil {

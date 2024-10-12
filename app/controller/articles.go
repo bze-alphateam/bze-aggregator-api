@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"errors"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -19,7 +19,7 @@ type ArticlesController struct {
 
 func NewArticlesController(logger logrus.FieldLogger, service ArticlesService) (*ArticlesController, error) {
 	if logger == nil || service == nil {
-		return nil, errors.New("invalid dependencies provided to articles controller")
+		return nil, internal.NewInvalidDependenciesErr("NewArticlesController")
 	}
 
 	return &ArticlesController{service: service, logger: logger}, nil

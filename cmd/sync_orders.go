@@ -7,11 +7,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	flagMarketId = "market-id"
+)
+
 var syncOrdersCmd = &cobra.Command{
 	Use:   "orders",
+	Args:  cobra.ExactArgs(0),
 	Short: "Sync active orders",
-	Long:  `Sync active orders for a market or more`,
+	Long: `Sync active orders for a market or more
+Usage:
+./bze-agg sync orders
+./bze-agg sync orders --market-id "uvdl/ubze"
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+
 		cfg, err := config.NewAppConfig()
 		if err != nil {
 			return err
@@ -22,12 +32,22 @@ var syncOrdersCmd = &cobra.Command{
 			return err
 		}
 
-		handler, err := factory.GetMarketsSyncHandler(cfg, logger)
+		handler, err := factory.GetMarketOrderSyncHandler(cfg, logger)
 		if err != nil {
 			return err
 		}
 
-		handler.SyncMarkets()
+		marketId, _ := cmd.Flags().GetString(flagMarketId)
+		if marketId == "" {
+			logger.Info("no market id specified")
+			logger.Info("syncing all markets orders")
+
+			handler.SyncAll()
+		} else {
+			logger.Infof("syncing orders for market with id %s", marketId)
+
+			return handler.SyncMarketOrders(marketId)
+		}
 
 		return nil
 	},
@@ -35,4 +55,5 @@ var syncOrdersCmd = &cobra.Command{
 
 func init() {
 	syncCmd.AddCommand(syncOrdersCmd)
+	syncOrdersCmd.Flags().String(flagMarketId, "", "the blockchain market id we want to sync")
 }

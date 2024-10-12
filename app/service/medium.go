@@ -2,8 +2,8 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
 	"github.com/sirupsen/logrus"
@@ -28,7 +28,7 @@ type Medium struct {
 
 func NewMediumService(logger logrus.FieldLogger, cache Cache) (*Medium, error) {
 	if logger == nil || cache == nil {
-		return nil, errors.New("invalid dependencies provided to medium service")
+		return nil, internal.NewInvalidDependenciesErr("NewMediumService")
 	}
 
 	policy := bluemonday.StrictPolicy()

@@ -1,9 +1,9 @@
 package sync
 
 import (
-	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
 )
@@ -19,7 +19,7 @@ type Market struct {
 
 func NewMarketSync(logger logrus.FieldLogger, storage marketRepo) (*Market, error) {
 	if storage == nil || logger == nil {
-		return nil, fmt.Errorf("invalid dependencies provided to NewMarketSync")
+		return nil, internal.NewInvalidDependenciesErr("NewMarketSync")
 	}
 
 	return &Market{

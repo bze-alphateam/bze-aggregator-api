@@ -3,6 +3,7 @@ package factory
 import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/repository"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/data_provider"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/lock"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/sync"
 	"github.com/bze-alphateam/bze-aggregator-api/cmd/handlers"
@@ -33,7 +34,47 @@ func GetMarketsSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*h
 		return nil, err
 	}
 
-	handler, err := handlers.NewMarketsSync(logger, grpc, storage)
+	handler, err := handlers.NewMarketsSyncHandler(logger, grpc, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}
+
+func GetMarketOrderSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.MarketOrderSync, error) {
+	locker := lock.NewInMemoryLocker()
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := repository.NewMarketOrderRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	grpc, err := client.NewGrpcClient(cfg, locker)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := data_provider.NewOrderDataProvider(logger, grpc)
+	if err != nil {
+		return nil, err
+	}
+
+	orderSync, err := sync.NewOrderSync(logger, data, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	marketProvider, err := data_provider.NewMarketProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := handlers.NewMarketOrderSyncHandler(logger, marketProvider, orderSync)
 	if err != nil {
 		return nil, err
 	}

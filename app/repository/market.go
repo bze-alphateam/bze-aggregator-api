@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 )
@@ -12,7 +11,7 @@ type MarketRepository struct {
 
 func NewMarketRepository(db internal.Database) (*MarketRepository, error) {
 	if db == nil {
-		return nil, fmt.Errorf("invalid dependencies provided to NewMarketRepository")
+		return nil, internal.NewInvalidDependenciesErr("NewMarketRepository")
 	}
 
 	return &MarketRepository{db: db}, nil

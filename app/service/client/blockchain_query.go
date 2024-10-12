@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"io"
 	"net/http"
 	"strconv"
@@ -31,7 +32,7 @@ type BlockchainQueryClient struct {
 
 func NewBlockchainQueryClient(host string) (*BlockchainQueryClient, error) {
 	if len(host) == 0 {
-		return nil, fmt.Errorf("blockchain host is empty")
+		return nil, internal.NewInvalidDependenciesErr("NewBlockchainQueryClient")
 	}
 
 	return &BlockchainQueryClient{host}, nil

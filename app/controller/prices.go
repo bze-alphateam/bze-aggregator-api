@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"errors"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -19,7 +19,7 @@ type PricesController struct {
 
 func NewPricesController(logger logrus.FieldLogger, service PricesService) (*PricesController, error) {
 	if logger == nil || service == nil {
-		return nil, errors.New("invalid dependencies provided to prices controller")
+		return nil, internal.NewInvalidDependenciesErr("NewPricesController")
 	}
 
 	return &PricesController{service: service, logger: logger}, nil

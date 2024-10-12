@@ -2,9 +2,9 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/sirupsen/logrus"
 	"time"
 )
@@ -27,7 +27,7 @@ type Health struct {
 
 func NewHealthService(logger logrus.FieldLogger, cache Cache, provider MarketHistoryProvider) (*Health, error) {
 	if logger == nil || cache == nil || provider == nil {
-		return nil, errors.New("invalid dependencies provided to NewHealthService")
+		return nil, internal.NewInvalidDependenciesErr("NewHealthService")
 	}
 
 	return &Health{

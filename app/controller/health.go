@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"errors"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
+	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -20,7 +20,7 @@ type HealthCheckController struct {
 
 func NewHealthCheckController(logger logrus.FieldLogger, service MarketHealthCheckService) (*HealthCheckController, error) {
 	if logger == nil || service == nil {
-		return nil, errors.New("invalid dependencies provided to HealthCheckController")
+		return nil, internal.NewInvalidDependenciesErr("NewHealthCheckController")
 	}
 
 	return &HealthCheckController{
