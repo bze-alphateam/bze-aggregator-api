@@ -6,7 +6,7 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
-	"sync"
+	"slices"
 )
 
 type orderDataProvider interface {
@@ -15,7 +15,7 @@ type orderDataProvider interface {
 }
 
 type orderStorage interface {
-	Upsert(list []*entity.MarketOrder) error
+	Upsert(list []*entity.MarketOrder, marketIds []string) error
 }
 
 type Order struct {
@@ -35,39 +35,24 @@ func NewOrderSync(logger logrus.FieldLogger, dataProvider orderDataProvider, sto
 
 func (o *Order) SyncMarket(market *types.Market) error {
 	mId := converter.GetMarketId(market.GetBase(), market.GetQuote())
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
 
-		list, err := o.dataProvider.GetActiveBuyOrders(mId)
-		if err != nil {
-			o.logger.WithError(err).Error("error getting syncing buy orders")
-			return
-		}
+	buys, err := o.dataProvider.GetActiveBuyOrders(mId)
+	if err != nil {
+		return err
+	}
 
-		err = o.syncList(list)
-		if err != nil {
-			o.logger.WithError(err).Error("error syncing buy orders")
-		}
-	}()
+	sells, err := o.dataProvider.GetActiveSellOrders(mId)
+	if err != nil {
+		o.logger.WithError(err).Error("error getting syncing sell orders")
+		return err
+	}
 
-	go func() {
-		defer wg.Done()
-
-		list, err := o.dataProvider.GetActiveSellOrders(mId)
-		if err != nil {
-			o.logger.WithError(err).Error("error getting syncing sell orders")
-			return
-		}
-
-		err = o.syncList(list)
-		if err != nil {
-			o.logger.WithError(err).Error("error syncing sell orders")
-		}
-	}()
-
-	wg.Wait()
+	list := append(buys, sells...)
+	err = o.syncList(list)
+	if err != nil {
+		o.logger.WithError(err).Error("error syncing sell orders")
+		return err
+	}
 
 	return nil
 }
@@ -79,20 +64,18 @@ func (o *Order) syncList(source []types.AggregatedOrder) error {
 		return nil
 	}
 
-	entities := o.convertAggregatedOrder(source)
+	entities, marketIds := o.convertAggregatedOrder(source)
 	if len(entities) == 0 {
 		o.logger.Info("no converter orders found")
 
 		return nil
 	}
 
-	return o.storage.Upsert(entities)
+	return o.storage.Upsert(entities, marketIds)
 }
 
-func (o *Order) convertAggregatedOrder(source []types.AggregatedOrder) []*entity.MarketOrder {
-	var entities []*entity.MarketOrder
+func (o *Order) convertAggregatedOrder(source []types.AggregatedOrder) (entities []*entity.MarketOrder, marketIds []string) {
 	for _, order := range source {
-
 		//TODO: calculate quote amount
 
 		e, err := converter.NewMarketOrderEntity(&order)
@@ -102,7 +85,10 @@ func (o *Order) convertAggregatedOrder(source []types.AggregatedOrder) []*entity
 		}
 
 		entities = append(entities, e)
+		if !slices.Contains(marketIds, e.MarketID) {
+			marketIds = append(marketIds, e.MarketID)
+		}
 	}
 
-	return entities
+	return entities, marketIds
 }

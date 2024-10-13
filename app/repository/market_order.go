@@ -3,6 +3,8 @@ package repository
 import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
+	"github.com/jmoiron/sqlx"
+	"log"
 )
 
 type MarketOrderRepository struct {
@@ -17,7 +19,26 @@ func NewMarketOrderRepository(db internal.Database) (*MarketOrderRepository, err
 	return &MarketOrderRepository{db: db}, nil
 }
 
-func (r *MarketOrderRepository) Upsert(list []*entity.MarketOrder) error {
+// Upsert deletes all orders for the provided marketIds and inserts the newly retrieved list.
+// in case of failure it rolls back the sql transaction
+func (r *MarketOrderRepository) Upsert(list []*entity.MarketOrder, marketIds []string) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer tx.Rollback()
+
+	// Delete statement
+	deleteQ, deleteArgs, err := sqlx.In("DELETE FROM market_order WHERE market_id IN (?)", marketIds)
+	if err != nil {
+		return err
+	}
+	deleteQ = tx.Rebind(deleteQ)
+	_, err = tx.Exec(deleteQ, deleteArgs...)
+	if err != nil {
+		return err
+	}
+
 	query := `
 	INSERT INTO market_order (
 		market_id, order_type, amount, price, i_quote_amount, i_created_at
@@ -31,7 +52,12 @@ func (r *MarketOrderRepository) Upsert(list []*entity.MarketOrder) error {
 		i_created_at=VALUES(i_created_at);
 `
 
-	_, err := r.db.NamedExec(query, list)
+	_, err = tx.NamedExec(query, list)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return err
 	}
