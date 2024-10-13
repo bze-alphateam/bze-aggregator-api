@@ -6,7 +6,6 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
-	"slices"
 )
 
 type orderDataProvider interface {
@@ -48,7 +47,7 @@ func (o *Order) SyncMarket(market *types.Market) error {
 	}
 
 	list := append(buys, sells...)
-	err = o.syncList(list)
+	err = o.syncList(list, market)
 	if err != nil {
 		o.logger.WithError(err).Error("error syncing sell orders")
 		return err
@@ -57,27 +56,25 @@ func (o *Order) SyncMarket(market *types.Market) error {
 	return nil
 }
 
-func (o *Order) syncList(source []types.AggregatedOrder) error {
+func (o *Order) syncList(source []types.AggregatedOrder, market *types.Market) error {
 	if len(source) == 0 {
 		o.logger.Info("no active orders found")
 
 		return nil
 	}
 
-	entities, marketIds := o.convertAggregatedOrder(source)
+	entities := o.convertAggregatedOrder(source)
 	if len(entities) == 0 {
 		o.logger.Info("no converter orders found")
 
 		return nil
 	}
 
-	return o.storage.Upsert(entities, marketIds)
+	return o.storage.Upsert(entities, []string{converter.GetMarketId(market.GetBase(), market.GetQuote())})
 }
 
-func (o *Order) convertAggregatedOrder(source []types.AggregatedOrder) (entities []*entity.MarketOrder, marketIds []string) {
+func (o *Order) convertAggregatedOrder(source []types.AggregatedOrder) (entities []*entity.MarketOrder) {
 	for _, order := range source {
-		//TODO: calculate quote amount
-
 		e, err := converter.NewMarketOrderEntity(&order)
 		if err != nil {
 			o.logger.WithError(err).Error("error converting order proto to entity")
@@ -85,10 +82,7 @@ func (o *Order) convertAggregatedOrder(source []types.AggregatedOrder) (entities
 		}
 
 		entities = append(entities, e)
-		if !slices.Contains(marketIds, e.MarketID) {
-			marketIds = append(marketIds, e.MarketID)
-		}
 	}
 
-	return entities, marketIds
+	return entities
 }

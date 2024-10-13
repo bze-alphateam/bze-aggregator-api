@@ -17,15 +17,21 @@ func NewMarketEntity(source *tradebinTypes.Market) *entity.Market {
 }
 
 func NewMarketOrderEntity(source *tradebinTypes.AggregatedOrder) (*entity.MarketOrder, error) {
-	amtInt, err := strconv.Atoi(source.GetAmount())
+	amtInt, err := strconv.ParseUint(source.GetAmount(), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	qAmount, err := GetQuoteAmount(amtInt, source.GetPrice())
 	if err != nil {
 		return nil, err
 	}
 
 	return &entity.MarketOrder{
-		MarketID:  source.GetMarketId(),
-		OrderType: source.GetOrderType(),
-		Amount:    uint64(amtInt),
-		Price:     source.GetPrice(),
+		MarketID:    source.GetMarketId(),
+		OrderType:   source.GetOrderType(),
+		Amount:      amtInt,
+		Price:       source.GetPrice(),
+		QuoteAmount: qAmount,
 	}, nil
 }
