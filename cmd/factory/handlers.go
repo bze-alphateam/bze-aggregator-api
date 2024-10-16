@@ -81,3 +81,43 @@ func GetMarketOrderSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger)
 
 	return handler, nil
 }
+
+func GetMarketHistorySyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.MarketHistorySync, error) {
+	locker := lock.NewInMemoryLocker()
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := repository.NewMarketOrderRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	grpc, err := client.NewGrpcClient(cfg, locker)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := data_provider.NewHistoryDataProvider(logger, grpc)
+	if err != nil {
+		return nil, err
+	}
+
+	history, err := sync.NewHistorySync(logger, data, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	marketProvider, err := data_provider.NewMarketProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := handlers.NewMarketHistorySync(logger, marketProvider, history)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}

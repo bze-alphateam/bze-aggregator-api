@@ -7,18 +7,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	flagMarketId = "market-id"
-)
-
-var syncOrdersCmd = &cobra.Command{
-	Use:   "orders",
+var syncHistoryCmd = &cobra.Command{
+	Use:   "history",
 	Args:  cobra.ExactArgs(0),
-	Short: "Sync active orders",
-	Long: `Sync active orders for a market or more
+	Short: "Sync history orders",
+	Long: `Sync history orders for a market or more
 Usage:
-./bze-agg sync orders
-./bze-agg sync orders --market-id "uvdl/ubze"
+./bze-agg sync history
+./bze-agg sync history --market-id "uvdl/ubze"
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -32,7 +28,7 @@ Usage:
 			return err
 		}
 
-		handler, err := factory.GetMarketOrderSyncHandler(cfg, logger)
+		handler, err := factory.GetMarketHistorySyncHandler(cfg, logger)
 		if err != nil {
 			return err
 		}
@@ -46,7 +42,7 @@ Usage:
 		} else {
 			logger.Infof("syncing orders for market with id %s", marketId)
 
-			return handler.SyncMarketOrders(marketId)
+			return handler.SyncHistory(marketId)
 		}
 
 		return nil
@@ -54,5 +50,5 @@ Usage:
 }
 
 func init() {
-	syncCmd.AddCommand(syncOrdersCmd)
+	syncCmd.AddCommand(syncHistoryCmd)
 }

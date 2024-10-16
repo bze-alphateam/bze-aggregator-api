@@ -9,6 +9,7 @@ var syncCmd = &cobra.Command{
 Usage:
 ./bze-agg sync markets
 ./bze-agg sync orders
+./bze-agg sync history
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Usage()
@@ -17,4 +18,5 @@ Usage:
 
 func init() {
 	rootCmd.AddCommand(syncCmd)
+	syncCmd.PersistentFlags().String(flagMarketId, "", "the blockchain market id we want to sync")
 }
