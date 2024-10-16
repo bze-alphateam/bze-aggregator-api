@@ -21,10 +21,10 @@ func NewHistoryDataProvider(logger logrus.FieldLogger, provider clientProvider) 
 	return &History{provider: provider, logger: logger}, nil
 }
 
-func (o *History) GetMarketHistory(marketId string, limit uint64, key string) ([]types.HistoryOrder, error) {
+func (o *History) GetMarketHistory(marketId string, limit uint64, key string) ([]types.HistoryOrder, string, error) {
 	qc, err := o.provider.GetTradebinQueryClient()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	params := o.getHistoryQueryParams(marketId, limit, key)
@@ -32,18 +32,19 @@ func (o *History) GetMarketHistory(marketId string, limit uint64, key string) ([
 
 	res, err := qc.MarketHistory(context.Background(), params)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	o.logger.Info("aggregated orders fetched")
+	o.logger.Info("history orders fetched")
 
-	return res.GetList(), nil
+	return res.GetList(), string(res.GetPagination().GetNextKey()), nil
 }
 func (o *History) getHistoryQueryParams(marketId string, limit uint64, key string) *types.QueryMarketHistoryRequest {
 	res := types.QueryMarketHistoryRequest{
 		Market: marketId,
 		Pagination: &query.PageRequest{
-			Limit:   limit,
-			Reverse: true,
+			Limit:      limit,
+			Reverse:    true,
+			CountTotal: true,
 		},
 	}
 

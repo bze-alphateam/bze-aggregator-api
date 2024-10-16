@@ -36,7 +36,7 @@ func syncMarket(marketId string, provider marketProvider, logger logrus.FieldLog
 func syncAll(provider marketProvider, logger logrus.FieldLogger, syncFunc func(m *types.Market) error) {
 	res := getMarkets(provider, logger)
 	if len(res) == 0 {
-		logger.Error("could not fetch markets")
+		logger.Error("could not fetch markets to use in syncAll")
 		return
 	}
 
@@ -46,10 +46,8 @@ func syncAll(provider marketProvider, logger logrus.FieldLogger, syncFunc func(m
 
 		err := syncFunc(&m)
 		if err != nil {
-			l.WithError(err).Error("could not sync market orders")
+			l.WithError(err).Error("could not run syncAll")
 			continue
 		}
-
-		l.Info("market orders synced")
 	}
 }

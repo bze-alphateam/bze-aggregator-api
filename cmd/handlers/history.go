@@ -37,6 +37,5 @@ func (m *MarketHistorySync) SyncAll() {
 }
 
 func (m *MarketHistorySync) syncMarket(market *types.Market) error {
-
-	return nil
+	return m.storage.SyncHistory(market)
 }

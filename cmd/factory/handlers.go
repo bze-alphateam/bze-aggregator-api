@@ -89,7 +89,7 @@ func GetMarketHistorySyncHandler(cfg *config.AppConfig, logger logrus.FieldLogge
 		return nil, err
 	}
 
-	repo, err := repository.NewMarketOrderRepository(db)
+	repo, err := repository.NewMarketHistoryRepository(db)
 	if err != nil {
 		return nil, err
 	}
