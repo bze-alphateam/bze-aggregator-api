@@ -29,12 +29,14 @@ func NewMarketOrderEntity(source *tradebinTypes.AggregatedOrder) (*entity.Market
 	}
 
 	//TODO: uPrice transformation
+
 	return &entity.MarketOrder{
-		MarketID:    source.GetMarketId(),
-		OrderType:   source.GetOrderType(),
-		Amount:      amtInt,
-		Price:       source.GetPrice(),
-		QuoteAmount: qAmount,
+		MarketID:        source.GetMarketId(),
+		OrderType:       source.GetOrderType(),
+		Amount:          amtInt,
+		Price:           source.GetPrice(),
+		CalculatedPrice: source.GetPrice(),
+		QuoteAmount:     qAmount,
 	}, nil
 }
 
@@ -45,20 +47,21 @@ func NewMarketHistoryEntity(source *tradebinTypes.HistoryOrder) (*entity.MarketH
 	}
 
 	//TODO: uPrice transformation
+
 	qAmount, err := GetQuoteAmount(amtInt, source.GetPrice())
 	if err != nil {
 		return nil, err
 	}
 
 	return &entity.MarketHistory{
-		ID:          0,
-		MarketID:    source.GetMarketId(),
-		OrderType:   source.GetOrderType(),
-		Amount:      amtInt,
-		Price:       source.GetPrice(),
-		ExecutedAt:  time.Unix(source.GetExecutedAt(), 0),
-		Maker:       source.GetMaker(),
-		Taker:       source.GetTaker(),
-		QuoteAmount: qAmount,
+		MarketID:        source.GetMarketId(),
+		OrderType:       source.GetOrderType(),
+		Amount:          amtInt,
+		Price:           source.GetPrice(),
+		CalculatedPrice: source.GetPrice(),
+		ExecutedAt:      time.Unix(source.GetExecutedAt(), 0),
+		Maker:           source.GetMaker(),
+		Taker:           source.GetTaker(),
+		QuoteAmount:     qAmount,
 	}, nil
 }

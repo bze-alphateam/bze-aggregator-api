@@ -61,9 +61,9 @@ func (r MarketHistoryRepository) SaveMarketHistoryOrders(marketId string, list [
 
 	query := `
 	INSERT INTO market_history (
-		market_id, order_type, amount, price, executed_at, maker, taker,  i_quote_amount, i_created_at
+		market_id, order_type, amount, price, i_calculated_price,  executed_at, maker, taker,  i_quote_amount, i_created_at
 	) VALUES (
-		:market_id, :order_type, :amount, :price, :executed_at, :maker, :taker, :i_quote_amount, NOW()
+		:market_id, :order_type, :amount, :price, :i_calculated_price, :executed_at, :maker, :taker, :i_quote_amount, NOW()
 	);
 `
 
