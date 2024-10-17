@@ -28,8 +28,6 @@ func NewMarketOrderEntity(source *tradebinTypes.AggregatedOrder) (*entity.Market
 		return nil, err
 	}
 
-	//TODO: uPrice transformation
-
 	return &entity.MarketOrder{
 		MarketID:        source.GetMarketId(),
 		OrderType:       source.GetOrderType(),
@@ -45,8 +43,6 @@ func NewMarketHistoryEntity(source *tradebinTypes.HistoryOrder) (*entity.MarketH
 	if err != nil {
 		return nil, err
 	}
-
-	//TODO: uPrice transformation
 
 	qAmount, err := GetQuoteAmount(amtInt, source.GetPrice())
 	if err != nil {

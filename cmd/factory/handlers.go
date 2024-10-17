@@ -2,6 +2,7 @@ package factory
 
 import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/repository"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/data_provider"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/lock"
@@ -64,7 +65,17 @@ func GetMarketOrderSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger)
 		return nil, err
 	}
 
-	orderSync, err := sync.NewOrderSync(logger, data, repo)
+	regClient, err := client.NewChainRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient)
+	if err != nil {
+		return nil, err
+	}
+
+	orderSync, err := sync.NewOrderSync(logger, data, repo, chainReg)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +115,17 @@ func GetMarketHistorySyncHandler(cfg *config.AppConfig, logger logrus.FieldLogge
 		return nil, err
 	}
 
-	history, err := sync.NewHistorySync(logger, data, repo)
+	regClient, err := client.NewChainRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient)
+	if err != nil {
+		return nil, err
+	}
+
+	history, err := sync.NewHistorySync(logger, data, repo, chainReg)
 	if err != nil {
 		return nil, err
 	}

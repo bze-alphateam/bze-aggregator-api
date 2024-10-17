@@ -20,16 +20,22 @@ type orderStorage interface {
 type Order struct {
 	logger logrus.FieldLogger
 
-	dataProvider orderDataProvider
-	storage      orderStorage
+	dataProvider  orderDataProvider
+	storage       orderStorage
+	assetProvider assetProvider
 }
 
-func NewOrderSync(logger logrus.FieldLogger, dataProvider orderDataProvider, storage orderStorage) (*Order, error) {
-	if logger == nil || dataProvider == nil || storage == nil {
+func NewOrderSync(logger logrus.FieldLogger, dataProvider orderDataProvider, storage orderStorage, assetProvider assetProvider) (*Order, error) {
+	if logger == nil || dataProvider == nil || storage == nil || assetProvider == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewOrderSync")
 	}
 
-	return &Order{logger: logger, dataProvider: dataProvider, storage: storage}, nil
+	return &Order{
+		logger:        logger,
+		dataProvider:  dataProvider,
+		storage:       storage,
+		assetProvider: assetProvider,
+	}, nil
 }
 
 func (o *Order) SyncMarket(market *types.Market) error {
@@ -63,7 +69,12 @@ func (o *Order) syncList(source []types.AggregatedOrder, market *types.Market) e
 		return nil
 	}
 
-	entities := o.convertAggregatedOrder(source)
+	conv, err := converter.NewTypesConverter(o.assetProvider, market)
+	if err != nil {
+		return err
+	}
+
+	entities := o.convertAggregatedOrder(source, conv)
 	if len(entities) == 0 {
 		o.logger.Info("no converter orders found")
 
@@ -73,9 +84,9 @@ func (o *Order) syncList(source []types.AggregatedOrder, market *types.Market) e
 	return o.storage.Upsert(entities, []string{converter.GetMarketId(market.GetBase(), market.GetQuote())})
 }
 
-func (o *Order) convertAggregatedOrder(source []types.AggregatedOrder) (entities []*entity.MarketOrder) {
+func (o *Order) convertAggregatedOrder(source []types.AggregatedOrder, conv *converter.TypesConverter) (entities []*entity.MarketOrder) {
 	for _, order := range source {
-		e, err := converter.NewMarketOrderEntity(&order)
+		e, err := conv.AggregatedOrderToOrderEntity(&order)
 		if err != nil {
 			o.logger.WithError(err).Error("error converting order proto to entity")
 			continue

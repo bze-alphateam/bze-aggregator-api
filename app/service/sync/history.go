@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
@@ -12,6 +13,10 @@ import (
 const (
 	requestedHistoryLength = 5000
 )
+
+type assetProvider interface {
+	GetAssetDetails(denom string) (*chain_registry.ChainRegistryAsset, error)
+}
 
 type historyProvider interface {
 	GetMarketHistory(marketId string, limit uint64, key string) (list []types.HistoryOrder, paginationKey string, err error)
@@ -25,22 +30,27 @@ type historyStorage interface {
 type History struct {
 	logger logrus.FieldLogger
 
-	dataProvider historyProvider
-	storage      historyStorage
+	dataProvider  historyProvider
+	storage       historyStorage
+	assetProvider assetProvider
 }
 
-func NewHistorySync(logger logrus.FieldLogger, dataProvider historyProvider, storage historyStorage) (*History, error) {
-	if logger == nil || dataProvider == nil || storage == nil {
+func NewHistorySync(logger logrus.FieldLogger, dataProvider historyProvider, storage historyStorage, assetProvider assetProvider) (*History, error) {
+	if logger == nil || dataProvider == nil || storage == nil || assetProvider == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewHistorySync")
 	}
 
-	return &History{logger: logger, dataProvider: dataProvider, storage: storage}, nil
+	return &History{logger: logger, dataProvider: dataProvider, storage: storage, assetProvider: assetProvider}, nil
 }
 
 func (h *History) SyncHistory(market *types.Market) error {
 	marketId := converter.GetMarketId(market.GetBase(), market.GetQuote())
 	l := h.logger.WithField("market", marketId)
 	l.Info("preparing to sync history")
+	conv, err := converter.NewTypesConverter(h.assetProvider, market)
+	if err != nil {
+		return err
+	}
 
 	l.Info("fetching last order from market's history")
 	last, err := h.storage.GetLastHistoryOrder(marketId)
@@ -66,7 +76,7 @@ func (h *History) SyncHistory(market *types.Market) error {
 			break
 		}
 
-		done, err := h.syncHistoryList(marketId, hist, last)
+		done, err := h.syncHistoryList(market, hist, last, conv)
 		if err != nil {
 			return err
 		}
@@ -82,7 +92,8 @@ func (h *History) SyncHistory(market *types.Market) error {
 	return nil
 }
 
-func (h *History) syncHistoryList(marketId string, list []types.HistoryOrder, lastSyncedOrder *entity.MarketHistory) (finished bool, err error) {
+func (h *History) syncHistoryList(market *types.Market, list []types.HistoryOrder, lastSyncedOrder *entity.MarketHistory, conv *converter.TypesConverter) (finished bool, err error) {
+	marketId := converter.GetMarketId(market.GetBase(), market.GetQuote())
 	l := h.logger.WithField("market", marketId)
 	l.Info("syncing history list")
 	if len(list) == 0 {
@@ -99,7 +110,7 @@ func (h *History) syncHistoryList(marketId string, list []types.HistoryOrder, la
 			break
 		}
 
-		hist, err := converter.NewMarketHistoryEntity(&order)
+		hist, err := conv.HistoryOrderToHistoryEntity(&order)
 		if err != nil {
 			return false, err
 		}
