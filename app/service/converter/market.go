@@ -2,22 +2,32 @@ package converter
 
 import (
 	"fmt"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"math"
+)
+
+const (
+	defaultMaxDecimals = 6
 )
 
 func GetMarketId(base, quote string) string {
 	return fmt.Sprintf("%s/%s", base, quote)
 }
 
-func GetQuoteAmount(baseAmount uint64, price string) (uint64, error) {
-	oAmount := sdk.NewDecFromInt(sdk.NewIntFromUint64(baseAmount))
-	oPrice, err := sdk.NewDecFromStr(price)
-	if err != nil {
-		return 0, err
+func GetQuoteAmount(baseAmount string, price string, quoteAsset *chain_registry.ChainRegistryAsset) string {
+	maxDecimals := defaultMaxDecimals
+	bd := quoteAsset.GetDisplayDenomUnit()
+	if bd != nil {
+		maxDecimals = bd.Exponent
 	}
 
-	oAmount = oAmount.Mul(oPrice)
-	oAmount = oAmount.TruncateDec()
+	//multiply by scale -> truncate int -> divide by scale in order to keep max decimals
+	scale := sdk.NewDec(int64(math.Pow10(maxDecimals)))
+	amt := sdk.MustNewDecFromStr(baseAmount)
+	p := sdk.MustNewDecFromStr(price)
 
-	return oAmount.TruncateInt().Uint64(), nil
+	total := amt.Mul(p).Mul(scale).TruncateDec().Quo(scale)
+
+	return TrimAmountTrailingZeros(total.String())
 }
