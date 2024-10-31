@@ -20,7 +20,7 @@ func IntervalMapToEntities(source *interval.Map) []*entity.MarketHistoryInterval
 			ClosePrice:   TrimAmountTrailingZeros(src.ClosePrice.String()),
 			AveragePrice: TrimAmountTrailingZeros(src.AveragePrice.String()),
 			BaseVolume:   TrimAmountTrailingZeros(src.BaseVolume.String()),
-			QuoteVolume:  TrimAmountTrailingZeros(src.BaseVolume.String()),
+			QuoteVolume:  TrimAmountTrailingZeros(src.QuoteVolume.String()),
 		}
 	}
 
