@@ -23,10 +23,12 @@ type Order struct {
 	dataProvider  orderDataProvider
 	storage       orderStorage
 	assetProvider assetProvider
+
+	locker locker
 }
 
-func NewOrderSync(logger logrus.FieldLogger, dataProvider orderDataProvider, storage orderStorage, assetProvider assetProvider) (*Order, error) {
-	if logger == nil || dataProvider == nil || storage == nil || assetProvider == nil {
+func NewOrderSync(logger logrus.FieldLogger, dataProvider orderDataProvider, storage orderStorage, assetProvider assetProvider, l locker) (*Order, error) {
+	if logger == nil || dataProvider == nil || storage == nil || assetProvider == nil || l == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewOrderSync")
 	}
 
@@ -35,11 +37,15 @@ func NewOrderSync(logger logrus.FieldLogger, dataProvider orderDataProvider, sto
 		dataProvider:  dataProvider,
 		storage:       storage,
 		assetProvider: assetProvider,
+		locker:        l,
 	}, nil
 }
 
 func (o *Order) SyncMarket(market *types.Market) error {
 	mId := converter.GetMarketId(market.GetBase(), market.GetQuote())
+
+	o.locker.Lock(getOrderLockKey(mId))
+	defer o.locker.Unlock(getOrderLockKey(mId))
 
 	buys, err := o.dataProvider.GetActiveBuyOrders(mId)
 	if err != nil {

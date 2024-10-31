@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	requestedHistoryLength = 5000
+	requestedHistoryLength uint64 = 5000
 )
 
 type assetProvider interface {
@@ -33,18 +33,37 @@ type History struct {
 	dataProvider  historyProvider
 	storage       historyStorage
 	assetProvider assetProvider
+	locker        locker
 }
 
-func NewHistorySync(logger logrus.FieldLogger, dataProvider historyProvider, storage historyStorage, assetProvider assetProvider) (*History, error) {
-	if logger == nil || dataProvider == nil || storage == nil || assetProvider == nil {
+func NewHistorySync(logger logrus.FieldLogger, dataProvider historyProvider, storage historyStorage, assetProvider assetProvider, l locker) (*History, error) {
+	if logger == nil || dataProvider == nil || storage == nil || assetProvider == nil || l == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewHistorySync")
 	}
 
-	return &History{logger: logger, dataProvider: dataProvider, storage: storage, assetProvider: assetProvider}, nil
+	return &History{
+		logger:        logger,
+		dataProvider:  dataProvider,
+		storage:       storage,
+		assetProvider: assetProvider,
+		locker:        l,
+	}, nil
 }
 
-func (h *History) SyncHistory(market *types.Market) error {
+// SyncHistory syncs the history orders for the given market.
+// It resumes from the last order found in DB for this market
+// if batchSize is 0, it will use the value of requestedHistoryLength constant as limit
+func (h *History) SyncHistory(market *types.Market, batchSize uint64) error {
 	marketId := converter.GetMarketId(market.GetBase(), market.GetQuote())
+
+	h.locker.Lock(getHistoryLockKey(marketId))
+	defer h.locker.Unlock(getHistoryLockKey(marketId))
+
+	histLimit := requestedHistoryLength
+	if batchSize > 0 {
+		histLimit = batchSize
+	}
+
 	l := h.logger.WithField("market", marketId)
 	l.Info("preparing to sync history")
 	conv, err := converter.NewTypesConverter(h.assetProvider, market)
@@ -66,13 +85,13 @@ func (h *History) SyncHistory(market *types.Market) error {
 	var key string
 	for {
 		l.Info("fetching market history from blockchain")
-		hist, next, err := h.dataProvider.GetMarketHistory(marketId, requestedHistoryLength, key)
+		hist, next, err := h.dataProvider.GetMarketHistory(marketId, histLimit, key)
 		if err != nil {
 			return err
 		}
 
 		if len(hist) == 0 {
-			l.WithField("key", key).WithField("limit", requestedHistoryLength).Info("no history found on the blockchain")
+			l.WithField("key", key).WithField("limit", histLimit).Info("no history found on the blockchain")
 			break
 		}
 

@@ -14,7 +14,7 @@ import (
 )
 
 func GetMarketsSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.MarketsSync, error) {
-	locker := lock.NewInMemoryLocker()
+	locker := lock.GetInMemoryLocker()
 	db, err := connector.NewDatabaseConnection()
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func GetMarketsSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*h
 }
 
 func GetMarketOrderSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.MarketOrderSync, error) {
-	locker := lock.NewInMemoryLocker()
+	locker := lock.GetInMemoryLocker()
 	db, err := connector.NewDatabaseConnection()
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func GetMarketOrderSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger)
 		return nil, err
 	}
 
-	orderSync, err := sync.NewOrderSync(logger, data, repo, chainReg)
+	orderSync, err := sync.NewOrderSync(logger, data, repo, chainReg, lock.GetInMemoryLocker())
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func GetMarketOrderSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger)
 }
 
 func GetMarketHistorySyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.MarketHistorySync, error) {
-	locker := lock.NewInMemoryLocker()
+	locker := lock.GetInMemoryLocker()
 	db, err := connector.NewDatabaseConnection()
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func GetMarketHistorySyncHandler(cfg *config.AppConfig, logger logrus.FieldLogge
 		return nil, err
 	}
 
-	history, err := sync.NewHistorySync(logger, data, repo, chainReg)
+	history, err := sync.NewHistorySync(logger, data, repo, chainReg, lock.GetInMemoryLocker())
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +136,46 @@ func GetMarketHistorySyncHandler(cfg *config.AppConfig, logger logrus.FieldLogge
 	}
 
 	handler, err := handlers.NewMarketHistorySync(logger, marketProvider, history)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}
+
+func GetMarketIntervalSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.MarketIntervalSync, error) {
+	locker := lock.GetInMemoryLocker()
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := repository.NewMarketHistoryRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	grpc, err := client.NewGrpcClient(cfg, locker)
+	if err != nil {
+		return nil, err
+	}
+
+	iRepo, err := repository.NewMarketIntervalRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	history, err := sync.NewIntervalSync(logger, repo, locker, iRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	marketProvider, err := data_provider.NewMarketProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := handlers.NewMarketIntervalSync(logger, marketProvider, history)
 	if err != nil {
 		return nil, err
 	}

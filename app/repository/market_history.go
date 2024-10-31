@@ -79,3 +79,47 @@ func (r MarketHistoryRepository) SaveMarketHistoryOrders(marketId string, list [
 
 	return nil
 }
+
+func (r MarketHistoryRepository) GetByExecutedAt(marketId string, executedAt time.Time) ([]entity.MarketHistory, error) {
+	query := `SELECT * FROM market_history WHERE market_id = ? AND executed_at >= ? ORDER BY executed_at ASC LIMIT 50000`
+
+	var results []entity.MarketHistory
+	err := r.db.Select(&results, query, marketId, executedAt)
+	if err == nil {
+		return results, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return results, nil
+	}
+
+	return nil, err
+}
+
+func (r MarketHistoryRepository) GetOldestNotAddedToInterval(marketId string) (*entity.MarketHistory, error) {
+	ent := entity.MarketHistory{}
+	query := `SELECT * FROM market_history WHERE market_id = ? AND i_added_to_interval = 0 ORDER BY executed_at ASC LIMIT 1`
+
+	err := r.db.Get(&ent, query, marketId)
+	if err == nil {
+		return &ent, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return nil, err
+}
+
+func (r MarketHistoryRepository) MarkAsAddedToInterval(ids []int) error {
+	query := "UPDATE market_history SET i_added_to_interval = 1 WHERE id IN (?)"
+	query, args, err := sqlx.In(query, ids)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.Exec(query, args...)
+
+	return err
+}

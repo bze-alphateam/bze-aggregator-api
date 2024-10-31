@@ -28,6 +28,7 @@ func NewMarketSync(logger logrus.FieldLogger, storage marketRepo) (*Market, erro
 	}, nil
 }
 
+// todo: refactor this - move the fetch from the blockchain here
 func (m *Market) SaveMarkets(list []tradebinTypes.Market) error {
 	m.logger.Infof("saving %d markets", len(list))
 

@@ -7,7 +7,7 @@ import (
 )
 
 type historyStorage interface {
-	SyncHistory(market *types.Market) error
+	SyncHistory(market *types.Market, batchSize uint64) error
 }
 
 type MarketHistorySync struct {
@@ -37,5 +37,5 @@ func (m *MarketHistorySync) SyncAll() {
 }
 
 func (m *MarketHistorySync) syncMarket(market *types.Market) error {
-	return m.storage.SyncHistory(market)
+	return m.storage.SyncHistory(market, 0)
 }

@@ -2,12 +2,19 @@ package lock
 
 import "sync"
 
+var locker *InMemoryLocker
+var once sync.Once
+
 type InMemoryLocker struct {
 	syncedMap sync.Map
 }
 
-func NewInMemoryLocker() *InMemoryLocker {
-	return &InMemoryLocker{}
+func GetInMemoryLocker() *InMemoryLocker {
+	once.Do(func() {
+		locker = &InMemoryLocker{}
+	})
+
+	return locker
 }
 
 // Lock locks the mutex for the given key.
