@@ -113,6 +113,12 @@ func (l *Listener) handleMessage(event types2.Event) {
 		if err != nil {
 			eventLogger.WithError(err).Error("error syncing history")
 		}
+
+		err = l.i.SyncIntervals(m)
+		if err != nil {
+			eventLogger.WithError(err).Error("error syncing intervals")
+		}
+
 		fallthrough
 	case "bze.tradebin.v1.OrderCanceledEvent":
 		fallthrough
