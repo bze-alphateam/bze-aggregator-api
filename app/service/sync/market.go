@@ -8,28 +8,38 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type marketProvider interface {
+	GetAllMarkets() ([]tradebinTypes.Market, error)
+}
+
 type marketRepo interface {
 	SaveIfNotExists(items []*entity.Market) error
 }
 
 type Market struct {
-	storage marketRepo
-	logger  logrus.FieldLogger
+	storage  marketRepo
+	logger   logrus.FieldLogger
+	provider marketProvider
 }
 
-func NewMarketSync(logger logrus.FieldLogger, storage marketRepo) (*Market, error) {
-	if storage == nil || logger == nil {
+func NewMarketSync(logger logrus.FieldLogger, storage marketRepo, provider marketProvider) (*Market, error) {
+	if storage == nil || logger == nil || provider == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewMarketSync")
 	}
 
 	return &Market{
-		storage: storage,
-		logger:  logger,
+		storage:  storage,
+		logger:   logger,
+		provider: provider,
 	}, nil
 }
 
-// todo: refactor this - move the fetch from the blockchain here
-func (m *Market) SaveMarkets(list []tradebinTypes.Market) error {
+func (m *Market) SyncMarkets() error {
+	list, err := m.provider.GetAllMarkets()
+	if err != nil {
+		return err
+	}
+
 	m.logger.Infof("saving %d markets", len(list))
 
 	var entities []*entity.Market
@@ -38,7 +48,7 @@ func (m *Market) SaveMarkets(list []tradebinTypes.Market) error {
 		entities = append(entities, target)
 	}
 
-	err := m.storage.SaveIfNotExists(entities)
+	err = m.storage.SaveIfNotExists(entities)
 	if err != nil {
 		return err
 	}

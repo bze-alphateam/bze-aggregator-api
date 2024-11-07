@@ -10,6 +10,7 @@ Usage:
 ./bze-agg sync markets
 ./bze-agg sync orders
 ./bze-agg sync history
+./bze-agg sync listener
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Usage()
