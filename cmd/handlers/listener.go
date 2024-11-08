@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	historyBatchSize = 50
+	historyBatchSize = 150
 	lockMarketsKey   = "sync:listener:lock:markets"
 )
 

@@ -81,14 +81,10 @@ func (i *IntervalSync) SyncIntervals(market *tradebinTypes.Market) error {
 
 	toSaveBatches := converter.SplitIntervalsSlice(toSave, 1000)
 	for _, entities := range toSaveBatches {
-		//wg.Add(1)
-		//go func() {
-		//	defer wg.Done()
 		err = i.intervalStorage.Save(entities)
 		if err != nil {
 			l.WithError(err).Error("could not save intervals batch")
 		}
-		//}()
 	}
 
 	batches := converter.SplitIntSlice(added, 1000)

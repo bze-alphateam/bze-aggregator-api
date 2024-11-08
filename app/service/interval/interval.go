@@ -87,8 +87,12 @@ func (i *Interval) AddOrder(o *entity.MarketHistory) {
 	//calculate average price and AFTERWARDS add volumes
 	newBaseVolume := orderBaseVolume.Add(i.BaseVolume)
 	newQuoteVolume := orderQuoteVolume.Add(i.QuoteVolume)
-	newAvgPrice := newQuoteVolume.Quo(newBaseVolume)
-	i.AveragePrice = newAvgPrice
+	if i.HighestPrice.Equal(i.LowestPrice) {
+		i.AveragePrice = price
+	} else {
+		newAvgPrice := newQuoteVolume.Quo(newBaseVolume)
+		i.AveragePrice = newAvgPrice
+	}
 	i.BaseVolume = newBaseVolume
 	i.QuoteVolume = newQuoteVolume
 }
