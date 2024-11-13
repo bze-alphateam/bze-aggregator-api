@@ -120,10 +120,15 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 		return nil, err
 	}
 
-	service, err := dex.NewTickersService(c.logger, mRepo, iRepo, oRepo)
+	tickers, err := dex.NewTickersService(c.logger, mRepo, iRepo, oRepo)
 	if err != nil {
 		return nil, err
 	}
 
-	return controller.NewDexController(c.logger, service)
+	orders, err := dex.NewOrdersService(c.logger, oRepo, mRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	return controller.NewDexController(c.logger, tickers, orders)
 }

@@ -20,6 +20,24 @@ func NewMarketRepository(db internal.Database) (*MarketRepository, error) {
 	return &MarketRepository{db: db}, nil
 }
 
+func (r *MarketRepository) GetMarket(marketId string) (*entity.Market, error) {
+	query := `
+		SELECT * FROM market WHERE market_id = ?;
+	`
+
+	ent := &entity.Market{}
+	err := r.db.Get(ent, query, marketId)
+	if err == nil {
+		return ent, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return nil, err
+}
+
 func (r *MarketRepository) SaveIfNotExists(items []*entity.Market) error {
 	query := `
 	INSERT INTO market (
@@ -56,6 +74,7 @@ func (r *MarketRepository) GetMarketsWithLastExecuted(hours int) ([]entity.Marke
 				WHERE market_id = m.market_id
 				AND executed_at > ?
 			)
+		ORDER BY id ASC
 `
 	executedAt := time.Now().Add(-time.Hour * time.Duration(hours))
 	var results []entity.MarketWithLastPrice

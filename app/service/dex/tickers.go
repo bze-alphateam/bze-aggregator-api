@@ -35,7 +35,7 @@ type intervalsRepo interface {
 	GetIntervalsByExecutedAt(marketId string, executedAt time.Time, length int) ([]entity.MarketHistoryInterval, error)
 }
 
-type ordersRepo interface {
+type tickersOrdersRepo interface {
 	GetHighestBuy(marketId string) (*entity.MarketOrder, error)
 	GetLowestSell(marketId string) (*entity.MarketOrder, error)
 }
@@ -44,10 +44,10 @@ type Tickers struct {
 	logger logrus.FieldLogger
 	mRepo  marketRepo
 	iRepo  intervalsRepo
-	oRepo  ordersRepo
+	oRepo  tickersOrdersRepo
 }
 
-func NewTickersService(logger logrus.FieldLogger, mRepo marketRepo, iRepo intervalsRepo, oRepo ordersRepo) (*Tickers, error) {
+func NewTickersService(logger logrus.FieldLogger, mRepo marketRepo, iRepo intervalsRepo, oRepo tickersOrdersRepo) (*Tickers, error) {
 	if logger == nil || mRepo == nil || iRepo == nil || oRepo == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewTickersService")
 	}

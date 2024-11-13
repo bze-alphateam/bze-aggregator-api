@@ -3,10 +3,13 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
+	"github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/jmoiron/sqlx"
 	"log"
+	"slices"
 )
 
 type MarketOrderRepository struct {
@@ -19,6 +22,35 @@ func NewMarketOrderRepository(db internal.Database) (*MarketOrderRepository, err
 	}
 
 	return &MarketOrderRepository{db: db}, nil
+}
+
+func (r *MarketOrderRepository) GetMarketOrdersWithDepth(marketId, orderType string, limit int) ([]entity.MarketOrder, error) {
+	sort := "ASC"
+	if orderType == types.OrderTypeBuy {
+		sort = "DESC"
+	}
+
+	query := fmt.Sprintf("SELECT * FROM market_order WHERE market_id = ? AND order_type = ? ORDER BY price_dec %s", sort)
+
+	if limit > 0 {
+		query = fmt.Sprintf("%s LIMIT %d", query, limit)
+	}
+
+	var results []entity.MarketOrder
+	err := r.db.Select(&results, query, marketId, orderType)
+	if err == nil {
+		if orderType == types.OrderTypeBuy {
+			slices.Reverse(results)
+		}
+
+		return results, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return results, nil
+	}
+
+	return nil, err
 }
 
 // Upsert deletes all orders for the provided marketIds and inserts the newly retrieved list.

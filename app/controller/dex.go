@@ -3,30 +3,38 @@ package controller
 import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
 
-type TickersService interface {
+type ordersService interface {
+	GetMarketOrders(marketId string, depth int) (*response.Orders, error)
+	GetCoingeckoMarketOrders(marketId string, depth int) (*response.CoingeckoOrders, error)
+}
+
+type tickersService interface {
 	GetTickers() ([]*dto.Ticker, error)
 	GetCoingeckoTickers() ([]*dto.CoingeckoTicker, error)
 }
 
 type Dex struct {
 	logger  logrus.FieldLogger
-	tickers TickersService
+	tickers tickersService
+	orders  ordersService
 }
 
-func NewDexController(logger logrus.FieldLogger, service TickersService) (*Dex, error) {
-	if logger == nil || service == nil {
+func NewDexController(logger logrus.FieldLogger, service tickersService, orders ordersService) (*Dex, error) {
+	if logger == nil || service == nil || orders == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewDexController")
 	}
 
 	return &Dex{
 		logger:  logger,
 		tickers: service,
+		orders:  orders,
 	}, nil
 }
 
@@ -56,6 +64,44 @@ func (d *Dex) TickersHandler(ctx echo.Context) error {
 		l.WithError(err).Error("error when getting tickers")
 
 		return ctx.JSON(http.StatusInternalServerError, request.NewUnknownErrorResponse())
+	}
+
+	return ctx.JSON(http.StatusOK, data)
+}
+
+func (d *Dex) OrdersHandler(ctx echo.Context) error {
+	l := d.getMethodLogger("OrdersHandler")
+
+	params, err := request.NewOrdersParams(ctx)
+	if err != nil {
+		l.WithError(err).Error("error when creating request parameters")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse("invalid request"))
+	}
+
+	if err = params.Validate(); err != nil {
+		l.WithError(err).Info("error when creating request parameters")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse(err.Error()))
+	}
+
+	marketId := params.MustGetMarketId()
+	if params.IsCoingeckoFormat() {
+		data, err := d.orders.GetCoingeckoMarketOrders(marketId, params.Depth)
+		if err != nil {
+			l.WithError(err).Error("error when getting tickers")
+
+			return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
+		}
+
+		return ctx.JSON(http.StatusOK, data)
+	}
+
+	data, err := d.orders.GetMarketOrders(marketId, params.Depth)
+	if err != nil {
+		l.WithError(err).Error("error when getting tickers")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
 	}
 
 	return ctx.JSON(http.StatusOK, data)

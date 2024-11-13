@@ -2,29 +2,29 @@ package request
 
 import "github.com/labstack/echo/v4"
 
-const (
-	formatCoingecko = "coingecko"
-)
-
 type TickersParams struct {
 	Format string `query:"format"`
 }
 
 func NewTickersParams(ctx echo.Context) (*TickersParams, error) {
-	mhr := &TickersParams{}
-	if err := ctx.Bind(mhr); err != nil {
+	tp := &TickersParams{}
+	if err := ctx.Bind(tp); err != nil {
 		return nil, err
 	}
 
-	//allow only known formats
-	// if we don't know the format remove the param(ignore it)
-	if mhr.Format != formatCoingecko {
-		mhr.Format = ""
-	}
+	setAllowedFormat(tp)
 
-	return mhr, nil
+	return tp, nil
 }
 
 func (p *TickersParams) IsCoingeckoFormat() bool {
 	return p.Format == formatCoingecko
+}
+
+func (p *TickersParams) SetFormat(format string) {
+	p.Format = format
+}
+
+func (p *TickersParams) GetFormat() string {
+	return p.Format
 }
