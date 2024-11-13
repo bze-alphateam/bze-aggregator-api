@@ -38,6 +38,11 @@ func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage,
 		return nil, internal.NewInvalidDependenciesErr("NewListener")
 	}
 
+	err := m.SyncMarkets()
+	if err != nil {
+		return nil, err
+	}
+
 	markets, err := getMarketsMap(mProvider)
 	if err != nil {
 		return nil, err

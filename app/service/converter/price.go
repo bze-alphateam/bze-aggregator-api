@@ -8,30 +8,30 @@ import (
 	"strings"
 )
 
-func UPriceToPrice(base, quote *chain_registry.ChainRegistryAsset, price string) (string, error) {
+func UPriceToPrice(base, quote *chain_registry.ChainRegistryAsset, price string) (string, float64, error) {
 	bd := base.GetDisplayDenomUnit()
 	if bd == nil {
-		return "", fmt.Errorf("no display denom for base asset")
+		return "", 0, fmt.Errorf("no display denom for base asset")
 	}
 
 	qd := quote.GetDisplayDenomUnit()
 	if qd == nil {
-		return "", fmt.Errorf("no display denom for quote asset")
-	}
-
-	if bd.Exponent == qd.Exponent {
-		return TrimAmountTrailingZeros(price), nil
+		return "", 0, fmt.Errorf("no display denom for quote asset")
 	}
 
 	priceDec, err := sdk.NewDecFromStr(price)
 	if err != nil {
-		return "", err
+		return "", 0, err
+	}
+
+	if bd.Exponent == qd.Exponent {
+		return TrimAmountTrailingZeros(price), priceDec.MustFloat64(), nil
 	}
 
 	multiplier := sdk.MustNewDecFromStr(fmt.Sprintf("%.2f", math.Pow10(bd.Exponent-qd.Exponent)))
 	priceDec = priceDec.Mul(multiplier)
 
-	return TrimAmountTrailingZeros(priceDec.String()), nil
+	return TrimAmountTrailingZeros(priceDec.String()), priceDec.MustFloat64(), nil
 }
 
 func UAmountToAmount(asset *chain_registry.ChainRegistryAsset, amount string) (string, error) {

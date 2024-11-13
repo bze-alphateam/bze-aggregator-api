@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"database/sql"
+	"errors"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
+	"time"
 )
 
 type MarketIntervalRepository struct {
@@ -45,4 +48,25 @@ func (r *MarketIntervalRepository) Save(items []*entity.MarketHistoryInterval) e
 	}
 
 	return nil
+}
+
+func (r *MarketIntervalRepository) GetIntervalsByExecutedAt(marketId string, executedAt time.Time, length int) ([]entity.MarketHistoryInterval, error) {
+	query := `
+		SELECT * FROM market_history_interval mhi
+		WHERE mhi.market_id = ?
+		AND mhi.length = ?
+		AND mhi.start_at >= ?
+	`
+
+	var results []entity.MarketHistoryInterval
+	err := r.db.Select(&results, query, marketId, length, executedAt)
+	if err == nil {
+		return results, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return results, nil
+	}
+
+	return nil, err
 }

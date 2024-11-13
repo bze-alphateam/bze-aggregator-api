@@ -3,8 +3,11 @@ package factory
 import (
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/controller"
+	"github.com/bze-alphateam/bze-aggregator-api/app/repository"
 	appService "github.com/bze-alphateam/bze-aggregator-api/app/service"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/dex"
+	"github.com/bze-alphateam/bze-aggregator-api/connector"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	"github.com/sirupsen/logrus"
 )
@@ -94,4 +97,33 @@ func (c *ControllerFactory) GetHealthController() (*controller.HealthCheckContro
 	}
 
 	return controller.NewHealthCheckController(c.logger, service)
+}
+
+func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	mRepo, err := repository.NewMarketRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	iRepo, err := repository.NewMarketIntervalRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	oRepo, err := repository.NewMarketOrderRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	service, err := dex.NewTickersService(c.logger, mRepo, iRepo, oRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	return controller.NewDexController(c.logger, service)
 }

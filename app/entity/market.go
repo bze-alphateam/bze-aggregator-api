@@ -1,6 +1,9 @@
 package entity
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type Market struct {
 	ID        int       `db:"id"`
@@ -9,4 +12,10 @@ type Market struct {
 	Quote     string    `db:"quote"`
 	CreatedBy string    `db:"created_by"`
 	CreatedAt time.Time `db:"i_created_at"`
+}
+
+type MarketWithLastPrice struct {
+	Market
+
+	LastPrice sql.NullString `db:"last_price"`
 }

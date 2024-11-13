@@ -47,7 +47,7 @@ func (tc *TypesConverter) HistoryOrderToHistoryEntity(source *types.HistoryOrder
 		return nil, err
 	}
 
-	ent.Price, err = UPriceToPrice(tc.base, tc.quote, source.Price)
+	ent.Price, _, err = UPriceToPrice(tc.base, tc.quote, source.Price)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (tc *TypesConverter) AggregatedOrderToOrderEntity(source *types.AggregatedO
 		return nil, err
 	}
 
-	ent.Price, err = UPriceToPrice(tc.base, tc.quote, ent.Price)
+	ent.Price, ent.PriceDec, err = UPriceToPrice(tc.base, tc.quote, ent.Price)
 	if err != nil {
 		return nil, err
 	}

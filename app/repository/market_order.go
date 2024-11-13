@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"database/sql"
+	"errors"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/jmoiron/sqlx"
@@ -41,16 +43,10 @@ func (r *MarketOrderRepository) Upsert(list []*entity.MarketOrder, marketIds []s
 
 	query := `
 	INSERT INTO market_order (
-		market_id, order_type, amount, price, i_quote_amount, i_created_at
+		market_id, order_type, amount, price, price_dec, i_quote_amount, i_created_at
 	) VALUES (
-		:market_id, :order_type, :amount, :price, :i_quote_amount, NOW()
-	) 
-	ON DUPLICATE KEY UPDATE 
-		amount=VALUES(amount),
-		price=VALUES(price),
-		i_quote_amount=VALUES(i_quote_amount),
-		i_created_at=VALUES(i_created_at);
-`
+		:market_id, :order_type, :amount, :price, :price_dec, :i_quote_amount, NOW()
+	)`
 
 	_, err = tx.NamedExec(query, list)
 	if err != nil {
@@ -63,4 +59,40 @@ func (r *MarketOrderRepository) Upsert(list []*entity.MarketOrder, marketIds []s
 	}
 
 	return nil
+}
+
+func (r *MarketOrderRepository) GetHighestBuy(marketId string) (*entity.MarketOrder, error) {
+	query := `
+		SELECT * FROM market_order WHERE market_id = ? AND order_type = ?  ORDER BY price_dec DESC LIMIT 1;
+	`
+
+	ent := &entity.MarketOrder{}
+	err := r.db.Get(ent, query, marketId, entity.OrderTypeBuy)
+	if err == nil {
+		return ent, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return nil, err
+}
+
+func (r *MarketOrderRepository) GetLowestSell(marketId string) (*entity.MarketOrder, error) {
+	query := `
+		SELECT * FROM market_order WHERE market_id = ? AND order_type = ?  ORDER BY price_dec ASC LIMIT 1;
+	`
+
+	ent := &entity.MarketOrder{}
+	err := r.db.Get(ent, query, marketId, entity.OrderTypeSell)
+	if err == nil {
+		return ent, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return nil, err
 }
