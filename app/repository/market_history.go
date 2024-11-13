@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/jmoiron/sqlx"
@@ -22,7 +23,7 @@ func NewMarketHistoryRepository(db internal.Database) (*MarketHistoryRepository,
 	return &MarketHistoryRepository{db: db}, nil
 }
 
-func (r MarketHistoryRepository) GetLastHistoryOrder(marketId string) (*entity.MarketHistory, error) {
+func (r *MarketHistoryRepository) GetLastHistoryOrder(marketId string) (*entity.MarketHistory, error) {
 	ent := entity.MarketHistory{}
 	query := `SELECT * FROM market_history WHERE market_id = ? ORDER BY executed_at DESC LIMIT 1`
 
@@ -38,7 +39,7 @@ func (r MarketHistoryRepository) GetLastHistoryOrder(marketId string) (*entity.M
 	return nil, err
 }
 
-func (r MarketHistoryRepository) SaveMarketHistoryOrders(marketId string, list []*entity.MarketHistory, clearExecutedAt []time.Time) error {
+func (r *MarketHistoryRepository) SaveMarketHistoryOrders(marketId string, list []*entity.MarketHistory, clearExecutedAt []time.Time) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
 		log.Fatalln(err)
@@ -80,7 +81,7 @@ func (r MarketHistoryRepository) SaveMarketHistoryOrders(marketId string, list [
 	return nil
 }
 
-func (r MarketHistoryRepository) GetByExecutedAt(marketId string, executedAt time.Time) ([]entity.MarketHistory, error) {
+func (r *MarketHistoryRepository) GetByExecutedAt(marketId string, executedAt time.Time) ([]entity.MarketHistory, error) {
 	query := `SELECT * FROM market_history WHERE market_id = ? AND executed_at >= ? ORDER BY executed_at ASC LIMIT 50000`
 
 	var results []entity.MarketHistory
@@ -96,7 +97,7 @@ func (r MarketHistoryRepository) GetByExecutedAt(marketId string, executedAt tim
 	return nil, err
 }
 
-func (r MarketHistoryRepository) GetOldestNotAddedToInterval(marketId string) (*entity.MarketHistory, error) {
+func (r *MarketHistoryRepository) GetOldestNotAddedToInterval(marketId string) (*entity.MarketHistory, error) {
 	ent := entity.MarketHistory{}
 	query := `SELECT * FROM market_history WHERE market_id = ? AND i_added_to_interval = 0 ORDER BY executed_at ASC LIMIT 1`
 
@@ -112,7 +113,7 @@ func (r MarketHistoryRepository) GetOldestNotAddedToInterval(marketId string) (*
 	return nil, err
 }
 
-func (r MarketHistoryRepository) MarkAsAddedToInterval(ids []int) error {
+func (r *MarketHistoryRepository) MarkAsAddedToInterval(ids []int) error {
 	query := "UPDATE market_history SET i_added_to_interval = 1 WHERE id IN (?)"
 	query, args, err := sqlx.In(query, ids)
 	if err != nil {
@@ -122,4 +123,37 @@ func (r MarketHistoryRepository) MarkAsAddedToInterval(ids []int) error {
 	_, err = r.db.Exec(query, args...)
 
 	return err
+}
+
+func (r *MarketHistoryRepository) GetHistoryBy(marketId, orderType string, limit int, startAt, endAt *time.Time) ([]entity.MarketHistory, error) {
+	query := "SELECT * FROM market_history WHERE market_id = ?"
+	args := []interface{}{marketId}
+
+	if orderType == entity.OrderTypeBuy || orderType == entity.OrderTypeSell {
+		query = fmt.Sprintf("%s AND order_type = ?", query)
+		args = append(args, orderType)
+	}
+
+	if startAt != nil && endAt != nil {
+		query = fmt.Sprintf("%s AND executed_at BETWEEN ? AND ?", query)
+		args = append(args, *startAt, endAt)
+	}
+
+	query = fmt.Sprintf("%s ORDER BY executed_at DESC", query)
+
+	if limit > 0 {
+		query = fmt.Sprintf("%s LIMIT %d", query, limit)
+	}
+
+	var results []entity.MarketHistory
+	err := r.db.Select(&results, query, args...)
+	if err == nil {
+		return results, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return results, nil
+	}
+
+	return nil, err
 }

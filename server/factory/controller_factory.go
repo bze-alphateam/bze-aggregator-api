@@ -120,6 +120,11 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 		return nil, err
 	}
 
+	hRepo, err := repository.NewMarketHistoryRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
 	tickers, err := dex.NewTickersService(c.logger, mRepo, iRepo, oRepo)
 	if err != nil {
 		return nil, err
@@ -130,5 +135,10 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 		return nil, err
 	}
 
-	return controller.NewDexController(c.logger, tickers, orders)
+	history, err := dex.NewHistoryService(c.logger, hRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	return controller.NewDexController(c.logger, tickers, orders, history)
 }

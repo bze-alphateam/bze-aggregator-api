@@ -9,6 +9,11 @@ import (
 	"net/http"
 )
 
+type historyService interface {
+	GetHistory(params *request.HistoryParams) ([]response.HistoryTrade, error)
+	GetCoingeckoHistory(params *request.HistoryParams) (*response.CoingeckoHistory, error)
+}
+
 type ordersService interface {
 	GetMarketOrders(marketId string, depth int) (*response.Orders, error)
 	GetCoingeckoMarketOrders(marketId string, depth int) (*response.CoingeckoOrders, error)
@@ -23,10 +28,11 @@ type Dex struct {
 	logger  logrus.FieldLogger
 	tickers tickersService
 	orders  ordersService
+	history historyService
 }
 
-func NewDexController(logger logrus.FieldLogger, service tickersService, orders ordersService) (*Dex, error) {
-	if logger == nil || service == nil || orders == nil {
+func NewDexController(logger logrus.FieldLogger, service tickersService, orders ordersService, history historyService) (*Dex, error) {
+	if logger == nil || service == nil || orders == nil || history == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewDexController")
 	}
 
@@ -34,6 +40,7 @@ func NewDexController(logger logrus.FieldLogger, service tickersService, orders 
 		logger:  logger,
 		tickers: service,
 		orders:  orders,
+		history: history,
 	}, nil
 }
 
@@ -88,7 +95,7 @@ func (d *Dex) OrdersHandler(ctx echo.Context) error {
 	if params.IsCoingeckoFormat() {
 		data, err := d.orders.GetCoingeckoMarketOrders(marketId, params.Depth)
 		if err != nil {
-			l.WithError(err).Error("error when getting tickers")
+			l.WithError(err).Error("error when getting orders")
 
 			return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
 		}
@@ -98,7 +105,44 @@ func (d *Dex) OrdersHandler(ctx echo.Context) error {
 
 	data, err := d.orders.GetMarketOrders(marketId, params.Depth)
 	if err != nil {
-		l.WithError(err).Error("error when getting tickers")
+		l.WithError(err).Error("error when getting orders")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
+	}
+
+	return ctx.JSON(http.StatusOK, data)
+}
+
+func (d *Dex) HistoryHandler(ctx echo.Context) error {
+	l := d.getMethodLogger("HistoryHandler")
+
+	params, err := request.NewHistoryParams(ctx)
+	if err != nil {
+		l.WithError(err).Error("error when creating request parameters")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse("invalid request"))
+	}
+
+	if err = params.Validate(); err != nil {
+		l.WithError(err).Info("error when creating request parameters")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse(err.Error()))
+	}
+
+	if params.IsCoingeckoFormat() {
+		data, err := d.history.GetCoingeckoHistory(params)
+		if err != nil {
+			l.WithError(err).Error("error when getting history")
+
+			return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
+		}
+
+		return ctx.JSON(http.StatusOK, data)
+	}
+
+	data, err := d.history.GetHistory(params)
+	if err != nil {
+		l.WithError(err).Error("error when getting history")
 
 		return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
 	}
