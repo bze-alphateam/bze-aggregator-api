@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
@@ -16,8 +15,8 @@ type ordersService interface {
 }
 
 type tickersService interface {
-	GetTickers() ([]*dto.Ticker, error)
-	GetCoingeckoTickers() ([]*dto.CoingeckoTicker, error)
+	GetTickers() ([]*response.Ticker, error)
+	GetCoingeckoTickers() ([]*response.CoingeckoTicker, error)
 }
 
 type Dex struct {

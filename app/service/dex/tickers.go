@@ -1,7 +1,7 @@
 package dex
 
 import (
-	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -60,7 +60,7 @@ func NewTickersService(logger logrus.FieldLogger, mRepo marketRepo, iRepo interv
 	}, nil
 }
 
-func (t *Tickers) GetCoingeckoTickers() ([]*dto.CoingeckoTicker, error) {
+func (t *Tickers) GetCoingeckoTickers() ([]*response.CoingeckoTicker, error) {
 	markets, err := t.mRepo.GetMarketsWithLastExecuted(tickersHours)
 	if err != nil {
 		return nil, err
@@ -70,12 +70,12 @@ func (t *Tickers) GetCoingeckoTickers() ([]*dto.CoingeckoTicker, error) {
 	wg := &sync.WaitGroup{}
 
 	var gErr error
-	var tickers []*dto.CoingeckoTicker
+	var tickers []*response.CoingeckoTicker
 	for _, market := range markets {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ti := dto.CoingeckoTicker{}
+			ti := response.CoingeckoTicker{}
 			err = t.buildTicker(market, &ti)
 			if err != nil {
 				gErr = err
@@ -92,7 +92,7 @@ func (t *Tickers) GetCoingeckoTickers() ([]*dto.CoingeckoTicker, error) {
 	return tickers, gErr
 }
 
-func (t *Tickers) GetTickers() ([]*dto.Ticker, error) {
+func (t *Tickers) GetTickers() ([]*response.Ticker, error) {
 	markets, err := t.mRepo.GetMarketsWithLastExecuted(tickersHours)
 	if err != nil {
 		return nil, err
@@ -102,12 +102,12 @@ func (t *Tickers) GetTickers() ([]*dto.Ticker, error) {
 	wg := &sync.WaitGroup{}
 
 	var gErr error
-	var tickers []*dto.Ticker
+	var tickers []*response.Ticker
 	for _, market := range markets {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ti := dto.Ticker{}
+			ti := response.Ticker{}
 			err = t.buildTicker(market, &ti)
 			if err != nil {
 				gErr = err
