@@ -11,4 +11,5 @@ type Database interface {
 	Get(dest interface{}, query string, args ...interface{}) error
 	Exec(query string, args ...any) (sql.Result, error)
 	Select(dest interface{}, query string, args ...interface{}) error
+	Queryx(query string, args ...interface{}) (*sqlx.Rows, error)
 }

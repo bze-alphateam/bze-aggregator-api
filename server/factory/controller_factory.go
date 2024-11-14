@@ -140,5 +140,10 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 		return nil, err
 	}
 
-	return controller.NewDexController(c.logger, tickers, orders, history, iRepo)
+	intervals, err := dex.NewIntervals(iRepo, c.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return controller.NewDexController(c.logger, tickers, orders, history, intervals)
 }

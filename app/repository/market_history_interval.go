@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/query"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"time"
@@ -72,26 +73,50 @@ func (r *MarketIntervalRepository) GetIntervalsByExecutedAt(marketId string, exe
 	return nil, err
 }
 
-func (r *MarketIntervalRepository) GetIntervalsBy(marketId string, length int, limit int) ([]entity.MarketHistoryInterval, error) {
-	query := `
+func (r *MarketIntervalRepository) GetIntervalsBy(params *query.IntervalsParams) (query.IntervalsMap, error) {
+	if params.MarketId == "" {
+		return nil, fmt.Errorf("can not get intervals without market_id")
+	}
+
+	if params.Length == 0 {
+		return nil, fmt.Errorf("can not get intervals without length")
+	}
+
+	args := []interface{}{params.MarketId, params.Length}
+	q := `
 		SELECT * FROM market_history_interval mhi
 		WHERE mhi.market_id = ?
 		AND mhi.length = ?
-		ORDER BY start_at DESC
 `
-	if limit > 0 {
-		query = fmt.Sprintf("%s LIMIT %d", query, limit)
+	if !params.StartAt.Equal(time.Time{}) {
+		q = fmt.Sprintf("%s AND mhi.start_at >= ?", q)
+		args = append(args, params.StartAt)
 	}
 
-	var results []entity.MarketHistoryInterval
-	err := r.db.Select(&results, query, marketId, length)
-	if err == nil {
-		return results, nil
+	q = fmt.Sprintf("%s ORDER BY start_at DESC", q)
+	if params.Limit > 0 {
+		q = fmt.Sprintf("%s LIMIT %d", q, params.Limit)
 	}
 
-	if errors.Is(err, sql.ErrNoRows) {
-		return results, nil
+	rows, err := r.db.Queryx(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(query.IntervalsMap)
+	for rows.Next() {
+		var e entity.MarketHistoryInterval
+		if err = rows.StructScan(&e); err != nil {
+			return nil, err
+		}
+
+		res[e.StartAt.Unix()] = e
 	}
 
-	return nil, err
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

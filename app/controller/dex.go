@@ -10,8 +10,8 @@ import (
 	"net/http"
 )
 
-type intervalStore interface {
-	GetIntervalsBy(marketId string, length int, limit int) ([]entity.MarketHistoryInterval, error)
+type intervalService interface {
+	GetIntervals(marketId string, length int, limit int) ([]entity.MarketHistoryInterval, error)
 }
 
 type historyService interface {
@@ -34,10 +34,10 @@ type Dex struct {
 	tickers   tickersService
 	orders    ordersService
 	history   historyService
-	intervals intervalStore
+	intervals intervalService
 }
 
-func NewDexController(logger logrus.FieldLogger, service tickersService, orders ordersService, history historyService, intervals intervalStore) (*Dex, error) {
+func NewDexController(logger logrus.FieldLogger, service tickersService, orders ordersService, history historyService, intervals intervalService) (*Dex, error) {
 	if logger == nil || service == nil || orders == nil || history == nil || intervals == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewDexController")
 	}
@@ -173,7 +173,7 @@ func (d *Dex) IntervalsHandler(ctx echo.Context) error {
 		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse(err.Error()))
 	}
 
-	data, err := d.intervals.GetIntervalsBy(params.MustGetMarketId(), params.Minutes, params.Limit)
+	data, err := d.intervals.GetIntervals(params.MustGetMarketId(), params.Minutes, params.Limit)
 	if err != nil {
 		l.WithError(err).Error("error when getting history")
 
