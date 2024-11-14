@@ -67,6 +67,7 @@ func Start() {
 	e.GET("/api/dex/tickers", dexCtrl.TickersHandler)
 	e.GET("/api/dex/orders", dexCtrl.OrdersHandler)
 	e.GET("/api/dex/history", dexCtrl.HistoryHandler)
+	e.GET("/api/dex/intervals", dexCtrl.IntervalsHandler)
 
 	// Start server
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", appCfg.Server.Port)))

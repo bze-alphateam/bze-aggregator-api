@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"time"
@@ -60,6 +61,30 @@ func (r *MarketIntervalRepository) GetIntervalsByExecutedAt(marketId string, exe
 
 	var results []entity.MarketHistoryInterval
 	err := r.db.Select(&results, query, marketId, length, executedAt)
+	if err == nil {
+		return results, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return results, nil
+	}
+
+	return nil, err
+}
+
+func (r *MarketIntervalRepository) GetIntervalsBy(marketId string, length int, limit int) ([]entity.MarketHistoryInterval, error) {
+	query := `
+		SELECT * FROM market_history_interval mhi
+		WHERE mhi.market_id = ?
+		AND mhi.length = ?
+		ORDER BY start_at DESC
+`
+	if limit > 0 {
+		query = fmt.Sprintf("%s LIMIT %d", query, limit)
+	}
+
+	var results []entity.MarketHistoryInterval
+	err := r.db.Select(&results, query, marketId, length)
 	if err == nil {
 		return results, nil
 	}

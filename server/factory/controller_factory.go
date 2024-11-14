@@ -140,5 +140,5 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 		return nil, err
 	}
 
-	return controller.NewDexController(c.logger, tickers, orders, history)
+	return controller.NewDexController(c.logger, tickers, orders, history, iRepo)
 }

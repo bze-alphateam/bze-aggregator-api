@@ -3,11 +3,16 @@ package controller
 import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
+	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
+
+type intervalStore interface {
+	GetIntervalsBy(marketId string, length int, limit int) ([]entity.MarketHistoryInterval, error)
+}
 
 type historyService interface {
 	GetHistory(params *request.HistoryParams) ([]response.HistoryTrade, error)
@@ -25,22 +30,24 @@ type tickersService interface {
 }
 
 type Dex struct {
-	logger  logrus.FieldLogger
-	tickers tickersService
-	orders  ordersService
-	history historyService
+	logger    logrus.FieldLogger
+	tickers   tickersService
+	orders    ordersService
+	history   historyService
+	intervals intervalStore
 }
 
-func NewDexController(logger logrus.FieldLogger, service tickersService, orders ordersService, history historyService) (*Dex, error) {
-	if logger == nil || service == nil || orders == nil || history == nil {
+func NewDexController(logger logrus.FieldLogger, service tickersService, orders ordersService, history historyService, intervals intervalStore) (*Dex, error) {
+	if logger == nil || service == nil || orders == nil || history == nil || intervals == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewDexController")
 	}
 
 	return &Dex{
-		logger:  logger,
-		tickers: service,
-		orders:  orders,
-		history: history,
+		logger:    logger,
+		tickers:   service,
+		orders:    orders,
+		history:   history,
+		intervals: intervals,
 	}, nil
 }
 
@@ -141,6 +148,32 @@ func (d *Dex) HistoryHandler(ctx echo.Context) error {
 	}
 
 	data, err := d.history.GetHistory(params)
+	if err != nil {
+		l.WithError(err).Error("error when getting history")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
+	}
+
+	return ctx.JSON(http.StatusOK, data)
+}
+
+func (d *Dex) IntervalsHandler(ctx echo.Context) error {
+	l := d.getMethodLogger("IntervalsHandler")
+
+	params, err := request.NewDexInterval(ctx)
+	if err != nil {
+		l.WithError(err).Error("error when creating request parameters")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse("invalid request"))
+	}
+
+	if err = params.Validate(); err != nil {
+		l.WithError(err).Info("error when creating request parameters")
+
+		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse(err.Error()))
+	}
+
+	data, err := d.intervals.GetIntervalsBy(params.MustGetMarketId(), params.Minutes, params.Limit)
 	if err != nil {
 		l.WithError(err).Error("error when getting history")
 
