@@ -52,9 +52,9 @@ func (i *DexInterval) Validate() error {
 		}
 	} else {
 		//do not allow too many intervals
-		if i.Minutes == intervalMinute && i.Limit > minuteMax {
+		if i.Minutes == intervalMinute && (i.Limit > minuteMax || i.Limit < 0) {
 			return fmt.Errorf("max limit exceeded for 1 minute intervals. got %d expected not more than %d", i.Limit, minuteMax)
-		} else if i.Minutes == intervalFiveMinutes && i.Limit > fiveMinMax {
+		} else if i.Minutes == intervalFiveMinutes && (i.Limit > fiveMinMax || i.Limit < 0) {
 			return fmt.Errorf("max limit exceeded for 5 minutes intervals. got %d expected not more than %d", i.Limit, fiveMinMax)
 		}
 	}

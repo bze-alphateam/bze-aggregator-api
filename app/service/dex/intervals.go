@@ -109,6 +109,10 @@ func (i *Intervals) getQueryParams(market *entity.Market, length int, limit int)
 		startAt = market.CreatedAt
 	}
 
+	if startAt.Before(market.CreatedAt) {
+		startAt = market.CreatedAt
+	}
+
 	return &query.IntervalsParams{
 		MarketId: market.MarketID,
 		StartAt:  startAt,
