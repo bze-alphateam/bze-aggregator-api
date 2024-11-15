@@ -17,23 +17,33 @@ type intervalStore interface {
 type Intervals struct {
 	iRepo  intervalStore
 	logger logrus.FieldLogger
+	mRepo  ordersMarketRepo
 }
 
-func NewIntervals(iRepo intervalStore, logger logrus.FieldLogger) (*Intervals, error) {
-	if iRepo == nil || logger == nil {
+func NewIntervals(iRepo intervalStore, logger logrus.FieldLogger, mRepo ordersMarketRepo) (*Intervals, error) {
+	if iRepo == nil || logger == nil || mRepo == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewIntervalsService")
 	}
 
 	return &Intervals{
 		iRepo:  iRepo,
 		logger: logger,
+		mRepo:  mRepo,
 	}, nil
 }
 
 func (i *Intervals) GetIntervals(marketId string, length int, limit int) (result []entity.MarketHistoryInterval, err error) {
 	l := i.logger.WithField("method", "GetIntervals")
+	market, err := i.mRepo.GetMarket(marketId)
+	if err != nil {
+		return nil, err
+	}
 
-	queryParams := i.getQueryParams(marketId, length, limit)
+	if market == nil {
+		return nil, fmt.Errorf("market not found: %s", marketId)
+	}
+
+	queryParams := i.getQueryParams(market, length, limit)
 	entries, err := i.iRepo.GetIntervalsBy(queryParams)
 	if err != nil {
 		l.WithError(err).Error("failed to get intervals from repo")
@@ -61,7 +71,7 @@ func (i *Intervals) GetIntervals(marketId string, length int, limit int) (result
 				nowStart.Add(-intervalDuration).Unix(),
 				interval.Length(length),
 			)
-			
+
 			continue
 		}
 
@@ -89,13 +99,18 @@ func (i *Intervals) GetIntervals(marketId string, length int, limit int) (result
 	return result, nil
 }
 
-func (i *Intervals) getQueryParams(marketId string, length int, limit int) *query.IntervalsParams {
+func (i *Intervals) getQueryParams(market *entity.Market, length int, limit int) *query.IntervalsParams {
 	//search only the intervals needed
 	//use NOW - duration of all intervals as start at
-	startAt := time.Now().Add(-time.Duration(limit) * i.getIntervalDuration(length))
+	var startAt time.Time
+	if limit > 0 {
+		startAt = time.Now().Add(-time.Duration(limit) * i.getIntervalDuration(length))
+	} else {
+		startAt = market.CreatedAt
+	}
 
 	return &query.IntervalsParams{
-		MarketId: marketId,
+		MarketId: market.MarketID,
 		StartAt:  startAt,
 		Limit:    limit,
 		Length:   length,

@@ -140,7 +140,7 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 		return nil, err
 	}
 
-	intervals, err := dex.NewIntervals(iRepo, c.logger)
+	intervals, err := dex.NewIntervals(iRepo, c.logger, mRepo)
 	if err != nil {
 		return nil, err
 	}
