@@ -5,15 +5,13 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
-	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 type historyRepo interface {
-	GetHistoryBy(marketId, orderType string, limit int, startAt, endAt *time.Time) ([]entity.MarketHistory, error)
+	GetHistoryBy(params request.HistoryParams) ([]entity.MarketHistory, error)
 }
 
 type HistoryService struct {
@@ -33,7 +31,7 @@ func NewHistoryService(logger logrus.FieldLogger, historyRepo historyRepo) (*His
 }
 
 func (h *HistoryService) GetHistory(params *request.HistoryParams) ([]response.HistoryTrade, error) {
-	hist, err := h.getHistory(params)
+	hist, err := h.historyRepo.GetHistoryBy(*params)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +54,7 @@ func (h *HistoryService) GetHistory(params *request.HistoryParams) ([]response.H
 }
 
 func (h *HistoryService) GetCoingeckoHistory(params *request.HistoryParams) (*response.CoingeckoHistory, error) {
-	hist, err := h.getHistory(params)
+	hist, err := h.historyRepo.GetHistoryBy(*params)
 	if err != nil {
 		return nil, err
 	}
@@ -80,15 +78,4 @@ func (h *HistoryService) GetCoingeckoHistory(params *request.HistoryParams) (*re
 	}
 
 	return &result, nil
-}
-
-func (h *HistoryService) getHistory(params *request.HistoryParams) ([]entity.MarketHistory, error) {
-	if params.StartTime > 0 && params.EndTime > params.StartTime {
-		startAt := converter.MillisecondsToTime(params.StartTime)
-		endAt := converter.MillisecondsToTime(params.EndTime)
-
-		return h.historyRepo.GetHistoryBy(params.MustGetMarketId(), params.OrderType, params.Limit, &startAt, &endAt)
-	}
-
-	return h.historyRepo.GetHistoryBy(params.MustGetMarketId(), params.OrderType, params.Limit, nil, nil)
 }

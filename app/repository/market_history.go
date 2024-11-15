@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -125,24 +127,34 @@ func (r *MarketHistoryRepository) MarkAsAddedToInterval(ids []int) error {
 	return err
 }
 
-func (r *MarketHistoryRepository) GetHistoryBy(marketId, orderType string, limit int, startAt, endAt *time.Time) ([]entity.MarketHistory, error) {
-	query := "SELECT * FROM market_history WHERE market_id = ?"
-	args := []interface{}{marketId}
+func (r *MarketHistoryRepository) GetHistoryBy(params request.HistoryParams) ([]entity.MarketHistory, error) {
+	query := "SELECT * FROM market_history WHERE 1 = 1"
 
-	if orderType == entity.OrderTypeBuy || orderType == entity.OrderTypeSell {
-		query = fmt.Sprintf("%s AND order_type = ?", query)
-		args = append(args, orderType)
+	var args []interface{}
+	if len(params.MarketId) > 0 {
+		query = query + " AND market_id = ?"
+		args = append(args, params.MarketId)
 	}
 
-	if startAt != nil && endAt != nil {
+	if params.OrderType == entity.OrderTypeBuy || params.OrderType == entity.OrderTypeSell {
+		query = fmt.Sprintf("%s AND order_type = ?", query)
+		args = append(args, params.OrderType)
+	}
+
+	if params.StartTime > 0 && params.EndTime > 0 {
 		query = fmt.Sprintf("%s AND executed_at BETWEEN ? AND ?", query)
-		args = append(args, *startAt, endAt)
+		args = append(args, converter.MillisecondsToTime(params.StartTime), converter.MillisecondsToTime(params.EndTime))
+	}
+
+	if len(params.Address) > 0 {
+		query = fmt.Sprintf("%s AND (maker = ? OR taker = ?)", query)
+		args = append(args, params.Address, params.Address)
 	}
 
 	query = fmt.Sprintf("%s ORDER BY executed_at DESC", query)
 
-	if limit > 0 {
-		query = fmt.Sprintf("%s LIMIT %d", query, limit)
+	if params.Limit > 0 {
+		query = fmt.Sprintf("%s LIMIT %d", query, params.Limit)
 	}
 
 	var results []entity.MarketHistory

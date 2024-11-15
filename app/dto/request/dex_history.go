@@ -20,6 +20,7 @@ type HistoryParams struct {
 	Limit     int    `query:"limit"`
 	StartTime int64  `query:"start_time"`
 	EndTime   int64  `query:"end_time"`
+	Address   string `query:"address"`
 }
 
 func NewHistoryParams(ctx echo.Context) (*HistoryParams, error) {
@@ -40,6 +41,10 @@ func NewHistoryParams(ctx echo.Context) (*HistoryParams, error) {
 }
 
 func (o *HistoryParams) Validate() error {
+	if len(o.Address) > 0 {
+		return nil
+	}
+
 	if len(o.MarketId) > 1 {
 		return nil
 	}
