@@ -52,6 +52,11 @@ func (c *CoingeckoTicker) SetLow(low float64) {
 	c.Low = low
 }
 
+func (c *CoingeckoTicker) SetChange(_ float32) {}
+
+func (c *CoingeckoTicker) SetOpenPrice(_ float64) {
+}
+
 type Ticker struct {
 	Base        string  `json:"base"`  // Symbol/Currency code/Contract Address of a the base cryptoasset, eg. BTC (Contract address for DEX)
 	Quote       string  `json:"quote"` //
@@ -63,6 +68,16 @@ type Ticker struct {
 	Ask         float64 `json:"ask"`
 	High        float64 `json:"high"`
 	Low         float64 `json:"low"`
+	OpenPrice   float64 `json:"open_price"`
+	Change      float32 `json:"change"`
+}
+
+func (t *Ticker) SetChange(change float32) {
+	t.Change = change
+}
+
+func (t *Ticker) SetOpenPrice(price float64) {
+	t.OpenPrice = price
 }
 
 func (t *Ticker) SetMarketDetails(base, quote, marketId string) {

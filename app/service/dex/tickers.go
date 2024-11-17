@@ -3,6 +3,8 @@ package dex
 import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/calculator"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/sirupsen/logrus"
@@ -25,6 +27,8 @@ type ticker interface {
 	SetAsk(ask float64)
 	SetHigh(high float64)
 	SetLow(low float64)
+	SetChange(change float32)
+	SetOpenPrice(price float64)
 }
 
 type marketRepo interface {
@@ -150,10 +154,18 @@ func (t *Tickers) buildTicker(market entity.MarketWithLastPrice, ticker ticker) 
 		return err
 	}
 
+	openPrice := sdk.ZeroDec()
+	if len(intervals) > 0 {
+		op := sdk.MustNewDecFromStr(intervals[0].OpenPrice)
+		openPrice = openPrice.Add(op)
+		ticker.SetOpenPrice(openPrice.MustFloat64())
+	}
+
 	high := sdk.ZeroDec()
 	low := sdk.ZeroDec()
 	bVolume := sdk.ZeroDec()
 	qVolume := sdk.ZeroDec()
+
 	for _, i := range intervals {
 		base := sdk.MustNewDecFromStr(i.BaseVolume)
 		quote := sdk.MustNewDecFromStr(i.QuoteVolume)
@@ -176,10 +188,15 @@ func (t *Tickers) buildTicker(market entity.MarketWithLastPrice, ticker ticker) 
 	ticker.SetHigh(high.MustFloat64())
 	ticker.SetLow(low.MustFloat64())
 	ticker.SetLastPrice(0)
+
+	priceChange := sdk.ZeroDec()
 	if market.LastPrice.Valid {
 		lastPrice := sdk.MustNewDecFromStr(market.LastPrice.String)
 		ticker.SetLastPrice(lastPrice.MustFloat64())
+		priceChange = calculator.CalculatePriceChange(openPrice, lastPrice)
 	}
+
+	ticker.SetChange(converter.DecToFloat32Rounded(priceChange))
 
 	return nil
 }

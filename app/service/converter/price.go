@@ -58,3 +58,9 @@ func TrimAmountTrailingZeros(amount string) string {
 
 	return result
 }
+
+func DecToFloat32Rounded(decimal sdk.Dec) float32 {
+	// Convert sdk.Dec to float64, round to 2 decimals, and convert to float32
+	rounded := math.Round(decimal.MustFloat64()*100) / 100
+	return float32(rounded)
+}

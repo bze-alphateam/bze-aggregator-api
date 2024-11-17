@@ -58,6 +58,7 @@ func (r *MarketIntervalRepository) GetIntervalsByExecutedAt(marketId string, exe
 		WHERE mhi.market_id = ?
 		AND mhi.length = ?
 		AND mhi.start_at >= ?
+		ORDER BY mhi.start_at ASC
 	`
 
 	var results []entity.MarketHistoryInterval
