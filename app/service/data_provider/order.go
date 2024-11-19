@@ -23,7 +23,10 @@ func NewOrderDataProvider(logger logrus.FieldLogger, provider clientProvider) (*
 		return nil, internal.NewInvalidDependenciesErr("NewOrderDataProvider")
 	}
 
-	return &Order{provider: provider, logger: logger}, nil
+	return &Order{
+		provider: provider,
+		logger:   logger.WithField("service", "DataProvider.Order"),
+	}, nil
 }
 
 func (o *Order) GetActiveBuyOrders(marketId string) ([]types.AggregatedOrder, error) {

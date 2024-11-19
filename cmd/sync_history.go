@@ -27,6 +27,7 @@ Usage:
 		if err != nil {
 			return err
 		}
+		logger = logger.WithField("command", "sync_history")
 
 		handler, err := factory.GetMarketHistorySyncHandler(cfg, logger)
 		if err != nil {

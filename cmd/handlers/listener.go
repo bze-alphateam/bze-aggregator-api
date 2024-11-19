@@ -73,8 +73,13 @@ func (l *Listener) ListenAndSync() error {
 	}
 	l.logger.Debug("created blockchain listener")
 
-	msgChan := make(chan types2.Event)
+	err = l.initialSync()
+	if err != nil {
+		l.logger.WithError(err).Error("error during initial sync")
+		return err
+	}
 
+	msgChan := make(chan types2.Event)
 	go func() {
 		err := blockchain.Listen(msgChan)
 		if err != nil {
@@ -163,6 +168,48 @@ func (l *Listener) getEventMarket(event types2.Event) *types.Market {
 		}
 	}
 
+	return nil
+}
+
+func (l *Listener) initialSync() (err error) {
+	logger := l.logger.WithField("process", "initialSync")
+	l.lockMarkets()
+	defer l.unlockMarkets()
+	logger.Info("syncing markets")
+	err = l.m.SyncMarkets()
+
+	l.markets, err = getMarketsMap(l.mProvider)
+	if err != nil {
+		return err
+	}
+
+	for _, m := range l.markets {
+		logger = logger.WithField("market", converter.GetMarketId(m.GetBase(), m.GetQuote()))
+		logger.Info("syncing history")
+		err = l.h.SyncHistory(&m, 0)
+		if err != nil {
+			logger.WithError(err).Error("error syncing history")
+			continue
+		}
+
+		logger.Info("syncing orders")
+		err = l.o.SyncMarket(&m)
+		if err != nil {
+			logger.WithError(err).Error("error syncing orders")
+			continue
+		}
+
+		logger.Info("syncing intervals")
+		err = l.i.SyncIntervals(&m)
+		if err != nil {
+			logger.WithError(err).Error("error syncing intervals")
+			continue
+		}
+
+		logger.Info("market synced")
+	}
+
+	l.logger.Info("initial sync finished")
 	return nil
 }
 

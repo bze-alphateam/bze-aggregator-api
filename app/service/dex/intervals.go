@@ -27,7 +27,7 @@ func NewIntervals(iRepo intervalStore, logger logrus.FieldLogger, mRepo ordersMa
 
 	return &Intervals{
 		iRepo:  iRepo,
-		logger: logger,
+		logger: logger.WithField("service", "Dex.IntervalsService"),
 		mRepo:  mRepo,
 	}, nil
 }

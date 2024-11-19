@@ -42,7 +42,7 @@ func NewHistorySync(logger logrus.FieldLogger, dataProvider historyProvider, sto
 	}
 
 	return &History{
-		logger:        logger,
+		logger:        logger.WithField("service", "HistorySync"),
 		dataProvider:  dataProvider,
 		storage:       storage,
 		assetProvider: assetProvider,
@@ -64,7 +64,7 @@ func (h *History) SyncHistory(market *types.Market, batchSize uint64) error {
 		histLimit = batchSize
 	}
 
-	l := h.logger.WithField("market", marketId)
+	l := h.logger.WithField("market", marketId).WithField("process", "SyncHistory")
 	l.Info("preparing to sync history")
 	conv, err := converter.NewTypesConverter(h.assetProvider, market)
 	if err != nil {

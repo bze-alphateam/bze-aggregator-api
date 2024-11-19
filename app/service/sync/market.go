@@ -29,7 +29,7 @@ func NewMarketSync(logger logrus.FieldLogger, storage marketRepo, provider marke
 
 	return &Market{
 		storage:  storage,
-		logger:   logger,
+		logger:   logger.WithField("service", "MarketSync"),
 		provider: provider,
 	}, nil
 }

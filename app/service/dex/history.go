@@ -25,7 +25,7 @@ func NewHistoryService(logger logrus.FieldLogger, historyRepo historyRepo) (*His
 	}
 
 	return &HistoryService{
-		logger:      logger,
+		logger:      logger.WithField("service", "Dex.HistoryService"),
 		historyRepo: historyRepo,
 	}, nil
 }

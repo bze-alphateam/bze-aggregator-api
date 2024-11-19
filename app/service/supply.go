@@ -42,7 +42,7 @@ func NewSupplyService(logger logrus.FieldLogger, cache Cache, provider RestDataP
 	return &Supply{
 		cache:        cache,
 		dataProvider: provider,
-		logger:       logger,
+		logger:       logger.WithField("service", "Service.Supply"),
 	}, nil
 }
 

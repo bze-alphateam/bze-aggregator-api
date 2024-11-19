@@ -31,7 +31,7 @@ func NewHealthService(logger logrus.FieldLogger, cache Cache, provider MarketHis
 	}
 
 	return &Health{
-		logger:   logger,
+		logger:   logger.WithField("service", "Service.Health"),
 		cache:    cache,
 		provider: provider,
 	}, nil

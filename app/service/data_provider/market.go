@@ -22,7 +22,10 @@ func NewMarketProvider(cl clientProvider, logger logrus.FieldLogger) (*Market, e
 		return nil, fmt.Errorf("invalid dependencies provided to NewMarketProvider")
 	}
 
-	return &Market{provider: cl, logger: logger}, nil
+	return &Market{
+		provider: cl,
+		logger:   logger.WithField("service", "DataProvider.Market"),
+	}, nil
 }
 
 func (m *Market) GetAllMarkets() ([]tradebinTypes.Market, error) {

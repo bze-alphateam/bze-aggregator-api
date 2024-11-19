@@ -36,7 +36,7 @@ func NewChainRegistry(logger logrus.FieldLogger, cache registryCache, store regi
 	return &ChainRegistry{
 		cache:  cache,
 		store:  store,
-		logger: logger,
+		logger: logger.WithField("service", "DataProvider.ChainRegistry"),
 	}, nil
 }
 

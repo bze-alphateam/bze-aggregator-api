@@ -35,7 +35,7 @@ func NewIntervalSync(logger logrus.FieldLogger, histStorage histStorage, l locke
 	}
 
 	return &IntervalSync{
-		logger:          logger,
+		logger:          logger.WithField("service", "IntervalSync"),
 		hist:            histStorage,
 		locker:          l,
 		intervalStorage: intervalStorage,
@@ -49,7 +49,7 @@ func (i *IntervalSync) SyncIntervals(market *tradebinTypes.Market) error {
 	i.locker.Lock(getIntervalLockKey(marketId))
 	defer i.locker.Unlock(getIntervalLockKey(marketId))
 
-	l := i.logger.WithField("market_id", marketId)
+	l := i.logger.WithField("market", marketId).WithField("process", "SyncIntervals")
 	l.Info("preparing to sync market intervals")
 
 	oldest, err := i.hist.GetOldestNotAddedToInterval(marketId)

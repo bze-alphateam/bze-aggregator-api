@@ -57,7 +57,7 @@ func NewTickersService(logger logrus.FieldLogger, mRepo marketRepo, iRepo interv
 	}
 
 	return &Tickers{
-		logger: logger,
+		logger: logger.WithField("service", "Dex.TickersService"),
 		mRepo:  mRepo,
 		iRepo:  iRepo,
 		oRepo:  oRepo,

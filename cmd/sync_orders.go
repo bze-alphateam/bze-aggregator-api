@@ -31,6 +31,7 @@ Usage:
 		if err != nil {
 			return err
 		}
+		logger = logger.WithField("command", "sync_orders")
 
 		handler, err := factory.GetMarketOrderSyncHandler(cfg, logger)
 		if err != nil {

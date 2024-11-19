@@ -33,7 +33,11 @@ func NewMediumService(logger logrus.FieldLogger, cache Cache) (*Medium, error) {
 
 	policy := bluemonday.StrictPolicy()
 
-	return &Medium{logger: logger, cache: cache, htmlPolicy: policy}, nil
+	return &Medium{
+		logger:     logger.WithField("service", "Service.Medium"),
+		cache:      cache,
+		htmlPolicy: policy,
+	}, nil
 }
 
 func (m *Medium) GetLatestArticles() []dto.Article {

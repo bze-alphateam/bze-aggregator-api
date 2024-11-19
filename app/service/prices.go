@@ -34,7 +34,7 @@ func NewPricesService(cache Cache, dataProvider PriceProvider, logger logrus.Fie
 	return &PricesService{
 		cache:        cache,
 		dataProvider: dataProvider,
-		logger:       logger,
+		logger:       logger.WithField("service", "Service.Prices"),
 	}, nil
 }
 

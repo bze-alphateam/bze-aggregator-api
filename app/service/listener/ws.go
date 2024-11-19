@@ -28,7 +28,7 @@ func NewTradebinListener(conn *http.HTTP, logger logrus.FieldLogger) (*TradebinL
 
 	return &TradebinListener{
 		client: conn,
-		logger: logger,
+		logger: logger.WithField("service", "TradebinListener"),
 	}, nil
 }
 

@@ -36,7 +36,7 @@ func NewOrdersService(logger logrus.FieldLogger, oRepo ordersRepo, mRepo ordersM
 	}
 
 	return &OrdersService{
-		logger: logger,
+		logger: logger.WithField("service", "Dex.OrdersService"),
 		oRepo:  oRepo,
 		mRepo:  mRepo,
 	}, nil

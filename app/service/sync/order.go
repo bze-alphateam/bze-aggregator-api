@@ -33,7 +33,7 @@ func NewOrderSync(logger logrus.FieldLogger, dataProvider orderDataProvider, sto
 	}
 
 	return &Order{
-		logger:        logger,
+		logger:        logger.WithField("service", "OrderSync"),
 		dataProvider:  dataProvider,
 		storage:       storage,
 		assetProvider: assetProvider,

@@ -18,7 +18,10 @@ func NewHistoryDataProvider(logger logrus.FieldLogger, provider clientProvider) 
 		return nil, internal.NewInvalidDependenciesErr("NewHistoryDataProvider")
 	}
 
-	return &History{provider: provider, logger: logger}, nil
+	return &History{
+		provider: provider,
+		logger:   logger.WithField("service", "DataProvider.History"),
+	}, nil
 }
 
 func (o *History) GetMarketHistory(marketId string, limit uint64, key string) ([]types.HistoryOrder, string, error) {

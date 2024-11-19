@@ -26,6 +26,7 @@ Usage:
 		if err != nil {
 			return err
 		}
+		logger = logger.WithField("command", "sync_listener")
 
 		handler, err := factory.GetSyncListener(cfg, logger)
 		if err != nil {
