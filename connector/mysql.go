@@ -1,15 +1,26 @@
 package connector
 
 import (
+	"fmt"
 	"github.com/jmoiron/sqlx"
-	"os"
+	"github.com/joho/godotenv"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func NewDatabaseConnection() (*sqlx.DB, error) {
-	db, err := sqlx.Connect("mysql", os.Getenv("MYSQL_DSN"))
+	envFile, err := godotenv.Read(".env")
+	if err != nil {
+		return nil, err
+	}
+
+	dsn, ok := envFile["MYSQL_DSN"]
+	if !ok {
+		return nil, fmt.Errorf("MYSQL_DSN not found in .env")
+	}
+
+	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
 		return nil, err
 	}
