@@ -8,9 +8,11 @@ import (
 )
 
 const (
-	minute      Length = 1
 	fiveMinutes Length = 5
+	quarterHour Length = 15
 	oneHour     Length = 60
+	fourHours   Length = 240
+	oneDay      Length = 1440
 )
 
 type Length int
@@ -33,7 +35,7 @@ type Interval struct {
 }
 
 func GetBiggestDuration() Length {
-	return oneHour
+	return oneDay
 }
 
 func NewInterval(start, end time.Time, duration Length) *Interval {
