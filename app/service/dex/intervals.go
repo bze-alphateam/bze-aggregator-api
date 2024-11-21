@@ -154,11 +154,11 @@ func (i *Intervals) GetTradingViewIntervals(marketId string, length int, limit i
 
 		entry = entity.TradingViewInterval{
 			StartAt:      nowStart,
-			LowestPrice:  "0",
-			OpenPrice:    "0",
-			HighestPrice: "0",
-			ClosePrice:   "0",
-			BaseVolume:   "0",
+			LowestPrice:  0,
+			OpenPrice:    0,
+			HighestPrice: 0,
+			ClosePrice:   0,
+			BaseVolume:   0,
 		}
 
 		result = append(result, entry)

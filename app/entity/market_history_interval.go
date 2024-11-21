@@ -1,6 +1,9 @@
 package entity
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type StartAtAware interface {
 	GetStartAt() time.Time
@@ -28,14 +31,27 @@ func (m *MarketHistoryInterval) GetStartAt() time.Time {
 }
 
 type TradingViewInterval struct {
-	StartAt      time.Time `db:"start_at" json:"time"`
-	LowestPrice  string    `db:"lowest_price" json:"low"`
-	OpenPrice    string    `db:"open_price" json:"open"`
-	HighestPrice string    `db:"highest_price" json:"high"`
-	ClosePrice   string    `db:"close_price" json:"close"`
-	BaseVolume   string    `db:"base_volume" json:"volume"`
+	StartAt      time.Time `db:"start_at" json:"-"`
+	LowestPrice  float64   `db:"lowest_price" json:"low"`
+	OpenPrice    float64   `db:"open_price" json:"open"`
+	HighestPrice float64   `db:"highest_price" json:"high"`
+	ClosePrice   float64   `db:"close_price" json:"close"`
+	BaseVolume   float64   `db:"base_volume" json:"value"`
 }
 
 func (t *TradingViewInterval) GetStartAt() time.Time {
 	return t.StartAt
+}
+
+// MarshalJSON implements the custom JSON marshalling
+func (t TradingViewInterval) MarshalJSON() ([]byte, error) {
+	// Create a custom struct for marshalling with Unix timestamp for StartAt
+	type Alias TradingViewInterval
+	return json.Marshal(&struct {
+		Time int64 `json:"time"` // Overriding "StartAt" with "time" in Unix format
+		*Alias
+	}{
+		Time:  t.StartAt.Unix(),
+		Alias: (*Alias)(&t),
+	})
 }
