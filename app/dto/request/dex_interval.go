@@ -11,6 +11,7 @@ const (
 	intervalMinute      = 1
 	intervalFiveMinutes = 5
 	intervalHour        = 60
+	intervalDay         = 60 * 24
 
 	minuteDefault  = 60 * 2
 	fiveMinDefault = 12 * 24
@@ -38,8 +39,8 @@ func NewDexInterval(ctx echo.Context) (*DexInterval, error) {
 }
 
 func (i *DexInterval) Validate() error {
-	if !slices.Contains([]int{intervalMinute, intervalFiveMinutes, intervalHour}, i.Minutes) {
-		return fmt.Errorf("invalid minutes. expected: %d, %d or %d", intervalMinute, intervalFiveMinutes, intervalHour)
+	if !slices.Contains([]int{intervalMinute, intervalFiveMinutes, intervalHour, intervalDay}, i.Minutes) {
+		return fmt.Errorf("invalid minutes. expected: %d, %d, %d or %d", intervalMinute, intervalFiveMinutes, intervalHour, intervalDay)
 	}
 
 	if i.Limit == 0 {

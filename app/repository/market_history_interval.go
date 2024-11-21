@@ -101,7 +101,14 @@ func (r *MarketIntervalRepository) GetIntervalsBy(params *query.IntervalsParams)
 }
 
 func (r *MarketIntervalRepository) GetTradingViewIntervalsBy(params *query.IntervalsParams) (query.TradingIntervalsMap, error) {
-	rows, err := r.intervalsByRows(params, []string{"start_at", "lowest_price", "open_price", "highest_price", "close_price", "base_volume"})
+	var rows *sqlx.Rows
+	var err error
+	if params.Length > 60 {
+		rows, err = r.getTradingViewIntervalsGroupedByDayRows(params)
+	} else {
+		rows, err = r.intervalsByRows(params, []string{"start_at", "lowest_price", "open_price", "highest_price", "close_price", "base_volume"})
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +158,47 @@ func (r *MarketIntervalRepository) intervalsByRows(params *query.IntervalsParams
 	}
 
 	rows, err := r.db.Queryx(q, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+}
+
+func (r *MarketIntervalRepository) getTradingViewIntervalsGroupedByDayRows(params *query.IntervalsParams) (*sqlx.Rows, error) {
+	query := `
+		SELECT
+			DATE(start_at) AS start_at,
+			MIN(CAST(lowest_price AS DECIMAL(18, 8))) AS lowest_price, -- Minimum lowest price
+			MAX(CAST(highest_price AS DECIMAL(18, 8))) AS highest_price, -- Maximum highest price
+			(SELECT CAST(open_price AS DECIMAL(18, 8))
+			 FROM market_history_interval
+			 WHERE market_id = ?
+			   AND length = 60
+			   AND DATE(start_at) = DATE(m.start_at)
+			 ORDER BY start_at ASC
+			 LIMIT 1) AS open_price, -- First open price of the day
+			(SELECT CAST(close_price AS DECIMAL(18, 8))
+			 FROM market_history_interval
+			 WHERE market_id = ?
+			   AND length = 60
+			   AND DATE(start_at) = DATE(m.start_at)
+			 ORDER BY start_at DESC
+			 LIMIT 1) AS close_price, -- Last close price of the day
+			SUM(CAST(base_volume AS DECIMAL(18, 8))) AS base_volume -- Total base volume
+		FROM
+			market_history_interval m
+		WHERE
+			m.market_id = ?
+		  AND length = 60 -- Ensure we only select 60-minute intervals
+		  AND start_at >= ? -- Replace with your start date
+		GROUP BY
+			DATE(start_at)
+		ORDER BY
+			start_at ASC;
+`
+
+	rows, err := r.db.Queryx(query, params.MarketId, params.MarketId, params.MarketId, params.StartAt.Format("2006-01-02"))
 	if err != nil {
 		return nil, err
 	}
