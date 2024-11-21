@@ -44,17 +44,34 @@ func (w *TradebinListener) Listen(msgChan chan<- types2.Event) error {
 	if err != nil {
 		return err
 	}
+	defer w.client.UnsubscribeAll(context.Background(), "block-listener")
 
 	// Subscribe to Tx events
 	txEventChan, err := w.client.Subscribe(context.Background(), "tx-listener", "tm.event = 'Tx'")
 	if err != nil {
 		return err
 	}
+	defer w.client.UnsubscribeAll(context.Background(), "tx-listener")
+
+	// Use a select statement to listen to both channels concurrently
+	blockChanClosed := false
+	txChanClosed := false
 
 	// Use a select statement to listen to both channels concurrently
 	for {
+		if blockChanClosed || txChanClosed {
+			w.logger.Error("one of the channels was closed")
+			close(msgChan)
+
+			return nil
+		}
+
 		select {
-		case blockMsg := <-blockEventChan:
+		case blockMsg, ok := <-blockEventChan:
+			if !ok {
+				blockChanClosed = true
+				continue
+			}
 			if evt, ok := blockMsg.Data.(tmtypes.EventDataNewBlock); ok {
 				allEvents := append(evt.ResultBeginBlock.Events, evt.ResultEndBlock.Events...)
 				for _, event := range allEvents {
@@ -66,7 +83,11 @@ func (w *TradebinListener) Listen(msgChan chan<- types2.Event) error {
 				}
 			}
 
-		case txMsg := <-txEventChan:
+		case txMsg, ok := <-txEventChan:
+			if !ok {
+				txChanClosed = true
+				continue
+			}
 			if evt, ok := txMsg.Data.(tmtypes.EventDataTx); ok {
 				txResult := evt.Result
 				for _, event := range txResult.Events {
