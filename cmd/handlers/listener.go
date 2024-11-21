@@ -61,6 +61,8 @@ func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage,
 }
 
 func (l *Listener) ListenAndSync() error {
+	defer l.logger.Info("ListenAndSync stopped")
+
 	conn, err := client.GetWsClient()
 	if err != nil {
 		return err
