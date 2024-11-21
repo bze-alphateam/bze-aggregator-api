@@ -8,17 +8,14 @@ import (
 )
 
 const (
-	intervalMinute      = 1
 	intervalFiveMinutes = 5
+	intervalQuarterHour = 15
 	intervalHour        = 60
-	intervalDay         = 60 * 24
+	intervalFourHours   = 240
+	intervalDay         = 1440 //1 day in minutes
 
-	minuteDefault  = 60 * 2
-	fiveMinDefault = 12 * 24
-	hourDefault    = 24 * 7
-
-	minuteMax  = 60 * 4
-	fiveMinMax = 12 * 48
+	defaultIntervalsLimit = 500
+	maxIntervalsLimit     = 5000
 )
 
 type DexInterval struct {
@@ -39,25 +36,16 @@ func NewDexInterval(ctx echo.Context) (*DexInterval, error) {
 }
 
 func (i *DexInterval) Validate() error {
-	if !slices.Contains([]int{intervalMinute, intervalFiveMinutes, intervalHour, intervalDay}, i.Minutes) {
-		return fmt.Errorf("invalid minutes. expected: %d, %d, %d or %d", intervalMinute, intervalFiveMinutes, intervalHour, intervalDay)
+	allIntervals := []int{intervalFiveMinutes, intervalQuarterHour, intervalHour, intervalFourHours, intervalDay}
+	if !slices.Contains(allIntervals, i.Minutes) {
+		return fmt.Errorf("invalid minutes. expected: %d, %d, %d, %d, %d", intervalFiveMinutes, intervalQuarterHour, intervalHour, intervalFourHours, intervalDay)
 	}
 
-	if i.Limit == 0 {
-		//set a default for 1 and 5 minutes to avoid returning all the intervals
-		if i.Minutes == intervalMinute {
-			i.Limit = minuteDefault
-		} else if i.Minutes == intervalFiveMinutes {
-			i.Limit = fiveMinDefault
-		} else {
-			i.Limit = hourDefault
-		}
+	if i.Limit <= 0 {
+		i.Limit = defaultIntervalsLimit
 	} else {
-		//do not allow too many intervals
-		if i.Minutes == intervalMinute && (i.Limit > minuteMax || i.Limit < 0) {
-			return fmt.Errorf("max limit exceeded for 1 minute intervals. got %d expected not more than %d", i.Limit, minuteMax)
-		} else if i.Minutes == intervalFiveMinutes && (i.Limit > fiveMinMax || i.Limit < 0) {
-			return fmt.Errorf("max limit exceeded for 5 minutes intervals. got %d expected not more than %d", i.Limit, fiveMinMax)
+		if i.Minutes != intervalDay && i.Limit > maxIntervalsLimit {
+			return fmt.Errorf("limit can not be greater than %d", maxIntervalsLimit)
 		}
 	}
 

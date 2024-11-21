@@ -12,14 +12,21 @@ type Map struct {
 
 func NewIntervalsMap(marketId string) *Map {
 	c := make(map[Length]*Group)
-	minCol := NewDurationGroup(minute)
-	c[minCol.Duration] = minCol
 
 	fiveCol := NewDurationGroup(fiveMinutes)
 	c[fiveCol.Duration] = fiveCol
 
+	quarterCol := NewDurationGroup(quarterHour)
+	c[quarterCol.Duration] = quarterCol
+
 	hourCol := NewDurationGroup(oneHour)
 	c[hourCol.Duration] = hourCol
+
+	fourCol := NewDurationGroup(fourHours)
+	c[fourCol.Duration] = fourCol
+
+	dayCol := NewDurationGroup(oneDay)
+	c[dayCol.Duration] = dayCol
 
 	return &Map{
 		Collection: c,
@@ -34,9 +41,9 @@ func (m *Map) AddOrder(o *entity.MarketHistory) {
 }
 
 func (m *Map) GetIntervals() (all []*Interval) {
-	all = append(all, m.Collection[minute].GetIntervals()...)
-	all = append(all, m.Collection[fiveMinutes].GetIntervals()...)
-	all = append(all, m.Collection[oneHour].GetIntervals()...)
+	for _, c := range m.Collection {
+		all = append(all, c.GetIntervals()...)
+	}
 
 	return all
 }
