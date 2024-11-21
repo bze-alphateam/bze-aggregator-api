@@ -26,3 +26,18 @@ func (m IntervalsMap) Elements() []entity.MarketHistoryInterval {
 
 	return result
 }
+
+type TradingIntervalsMap map[int64]entity.TradingViewInterval
+
+func (m TradingIntervalsMap) Elements() []entity.TradingViewInterval {
+	var result []entity.TradingViewInterval
+	if m == nil {
+		return result
+	}
+
+	for _, i := range m {
+		result = append(result, i)
+	}
+
+	return result
+}

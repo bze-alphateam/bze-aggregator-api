@@ -25,6 +25,7 @@ type DexInterval struct {
 	TickerId string `query:"ticker_id"` // ubze_uvdl
 	Minutes  int    `query:"minutes"`
 	Limit    int    `query:"limit"`
+	Format   string `query:"format"`
 }
 
 func NewDexInterval(ctx echo.Context) (*DexInterval, error) {
@@ -76,4 +77,8 @@ func (i *DexInterval) MustGetMarketId() string {
 	}
 
 	return strings.ReplaceAll(i.TickerId, "_", "/")
+}
+
+func (i *DexInterval) IsTradingViewFormat() bool {
+	return i.Format == "tv"
 }

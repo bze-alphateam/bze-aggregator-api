@@ -12,6 +12,7 @@ import (
 
 type intervalService interface {
 	GetIntervals(marketId string, length int, limit int) ([]entity.MarketHistoryInterval, error)
+	GetTradingViewIntervals(marketId string, length int, limit int) (result []entity.TradingViewInterval, err error)
 }
 
 type historyService interface {
@@ -171,6 +172,17 @@ func (d *Dex) IntervalsHandler(ctx echo.Context) error {
 		l.WithError(err).Info("error when creating request parameters")
 
 		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse(err.Error()))
+	}
+
+	if params.IsTradingViewFormat() {
+		data, err := d.intervals.GetTradingViewIntervals(params.MustGetMarketId(), params.Minutes, params.Limit)
+		if err != nil {
+			l.WithError(err).Error("error when getting history")
+
+			return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
+		}
+
+		return ctx.JSON(http.StatusOK, data)
 	}
 
 	data, err := d.intervals.GetIntervals(params.MustGetMarketId(), params.Minutes, params.Limit)

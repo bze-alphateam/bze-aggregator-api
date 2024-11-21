@@ -7,11 +7,13 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/interval"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/sirupsen/logrus"
+	"slices"
 	"time"
 )
 
 type intervalStore interface {
 	GetIntervalsBy(params *query.IntervalsParams) (query.IntervalsMap, error)
+	GetTradingViewIntervalsBy(params *query.IntervalsParams) (query.TradingIntervalsMap, error)
 }
 
 type Intervals struct {
@@ -53,7 +55,10 @@ func (i *Intervals) GetIntervals(marketId string, length int, limit int) (result
 
 	//if we found all required intervals then return them directly
 	if len(entries) == limit {
-		return entries.Elements(), nil
+		result = entries.Elements()
+		i.sortIntervals(result)
+
+		return result, nil
 	}
 
 	//if we didn't find all intervals needed we should fill the missing ones with 0 intervals
@@ -96,6 +101,75 @@ func (i *Intervals) GetIntervals(marketId string, length int, limit int) (result
 		)
 	}
 
+	i.sortIntervals(result)
+
+	return result, nil
+}
+
+func (i *Intervals) GetTradingViewIntervals(marketId string, length int, limit int) (result []entity.TradingViewInterval, err error) {
+	l := i.logger.WithField("method", "GetTradingViewIntervals")
+	market, err := i.mRepo.GetMarket(marketId)
+	if err != nil {
+		return nil, err
+	}
+
+	if market == nil {
+		return nil, fmt.Errorf("market not found: %s", marketId)
+	}
+
+	queryParams := i.getQueryParams(market, length, limit)
+	entries, err := i.iRepo.GetTradingViewIntervalsBy(queryParams)
+	if err != nil {
+		l.WithError(err).Error("failed to get intervals from repo")
+
+		return nil, fmt.Errorf("failed to get intervals")
+	}
+
+	//if we found all required intervals then return them directly
+	if len(entries) == limit {
+		result = entries.Elements()
+		i.sortTradingViewIntervals(result)
+
+		return result, nil
+	}
+
+	//if we didn't find all intervals needed we should fill the missing ones with 0 intervals
+	intervalDuration := i.getIntervalDuration(length)
+	nowStart, _ := interval.GetTimestampInterval(time.Now().Unix(), interval.Length(length))
+	for {
+		if nowStart.Before(queryParams.StartAt) {
+			break
+		}
+
+		entry, ok := entries[nowStart.Unix()]
+		if ok {
+			result = append(result, entry)
+			nowStart, _ = interval.GetTimestampInterval(
+				nowStart.Add(-intervalDuration).Unix(),
+				interval.Length(length),
+			)
+
+			continue
+		}
+
+		entry = entity.TradingViewInterval{
+			StartAt:      nowStart,
+			LowestPrice:  "0",
+			OpenPrice:    "0",
+			HighestPrice: "0",
+			ClosePrice:   "0",
+			BaseVolume:   "0",
+		}
+
+		result = append(result, entry)
+		nowStart, _ = interval.GetTimestampInterval(
+			nowStart.Add(-intervalDuration).Unix(),
+			interval.Length(length),
+		)
+	}
+
+	i.sortTradingViewIntervals(result)
+
 	return result, nil
 }
 
@@ -123,4 +197,16 @@ func (i *Intervals) getQueryParams(market *entity.Market, length int, limit int)
 
 func (i *Intervals) getIntervalDuration(length int) time.Duration {
 	return time.Duration(length) * time.Minute
+}
+
+func (i *Intervals) sortTradingViewIntervals(intervals []entity.TradingViewInterval) {
+	slices.SortFunc(intervals, func(i, j entity.TradingViewInterval) int {
+		return int(i.GetStartAt().Unix() - j.GetStartAt().Unix())
+	})
+}
+
+func (i *Intervals) sortIntervals(intervals []entity.MarketHistoryInterval) {
+	slices.SortFunc(intervals, func(i, j entity.MarketHistoryInterval) int {
+		return int(i.GetStartAt().Unix() - j.GetStartAt().Unix())
+	})
 }

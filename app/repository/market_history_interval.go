@@ -7,6 +7,8 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/query"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
+	"github.com/jmoiron/sqlx"
+	"strings"
 	"time"
 )
 
@@ -75,31 +77,7 @@ func (r *MarketIntervalRepository) GetIntervalsByExecutedAt(marketId string, exe
 }
 
 func (r *MarketIntervalRepository) GetIntervalsBy(params *query.IntervalsParams) (query.IntervalsMap, error) {
-	if params.MarketId == "" {
-		return nil, fmt.Errorf("can not get intervals without market_id")
-	}
-
-	if params.Length == 0 {
-		return nil, fmt.Errorf("can not get intervals without length")
-	}
-
-	args := []interface{}{params.MarketId, params.Length}
-	q := `
-		SELECT * FROM market_history_interval mhi
-		WHERE mhi.market_id = ?
-		AND mhi.length = ?
-`
-	if !params.StartAt.Equal(time.Time{}) {
-		q = fmt.Sprintf("%s AND mhi.start_at >= ?", q)
-		args = append(args, params.StartAt)
-	}
-
-	q = fmt.Sprintf("%s ORDER BY start_at DESC", q)
-	if params.Limit > 0 {
-		q = fmt.Sprintf("%s LIMIT %d", q, params.Limit)
-	}
-
-	rows, err := r.db.Queryx(q, args...)
+	rows, err := r.intervalsByRows(params, []string{"*"})
 	if err != nil {
 		return nil, err
 	}
@@ -120,4 +98,62 @@ func (r *MarketIntervalRepository) GetIntervalsBy(params *query.IntervalsParams)
 	}
 
 	return res, nil
+}
+
+func (r *MarketIntervalRepository) GetTradingViewIntervalsBy(params *query.IntervalsParams) (query.TradingIntervalsMap, error) {
+	rows, err := r.intervalsByRows(params, []string{"start_at", "lowest_price", "open_price", "highest_price", "close_price", "base_volume"})
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(query.TradingIntervalsMap)
+	for rows.Next() {
+		var e entity.TradingViewInterval
+		if err = rows.StructScan(&e); err != nil {
+			return nil, err
+		}
+
+		res[e.StartAt.Unix()] = e
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (r *MarketIntervalRepository) intervalsByRows(params *query.IntervalsParams, selectFields []string) (*sqlx.Rows, error) {
+	if params.MarketId == "" {
+		return nil, fmt.Errorf("can not get intervals without market_id")
+	}
+
+	if params.Length == 0 {
+		return nil, fmt.Errorf("can not get intervals without length")
+	}
+
+	args := []interface{}{params.MarketId, params.Length}
+	q := fmt.Sprintf(`
+		SELECT %s FROM market_history_interval mhi
+		WHERE mhi.market_id = ?
+		AND mhi.length = ?
+`, strings.Join(selectFields, ","))
+
+	if !params.StartAt.Equal(time.Time{}) {
+		q = fmt.Sprintf("%s AND mhi.start_at >= ?", q)
+		args = append(args, params.StartAt)
+	}
+
+	q = fmt.Sprintf("%s ORDER BY start_at DESC", q)
+	if params.Limit > 0 {
+		q = fmt.Sprintf("%s LIMIT %d", q, params.Limit)
+	}
+
+	rows, err := r.db.Queryx(q, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
 }
