@@ -102,7 +102,17 @@ func (c *ControllerFactory) GetHealthController() (*controller.HealthCheckContro
 		return nil, fmt.Errorf("could not instantiate blockchain query client: %w", err)
 	}
 
-	service, err := appService.NewHealthService(c.logger, cache, dp)
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := repository.NewMarketHistoryRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	service, err := appService.NewHealthService(c.logger, cache, dp, repo)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate prices service: %w", err)
 	}

@@ -7,6 +7,7 @@ import (
 
 const (
 	defaultMinutes = 10
+	maxMinutes     = 60 * 12
 )
 
 type MarketHealthRequest struct {
@@ -37,4 +38,23 @@ func (mhr *MarketHealthRequest) Validate() error {
 	}
 
 	return nil
+}
+
+type AggregatorHealthRequest struct {
+	Minutes int `query:"minutes"`
+}
+
+func NewAggregatorHealthRequest(ctx echo.Context) (*AggregatorHealthRequest, error) {
+	ahr := &AggregatorHealthRequest{}
+	if err := ctx.Bind(ahr); err != nil {
+		return nil, err
+	}
+
+	if ahr.Minutes <= 0 {
+		ahr.Minutes = defaultMinutes
+	} else if ahr.Minutes > maxMinutes {
+		ahr.Minutes = maxMinutes
+	}
+
+	return ahr, nil
 }

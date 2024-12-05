@@ -62,6 +62,7 @@ func Start() {
 	e.GET("/api/articles/medium", articlesCtrl.MediumArticlesHandler)
 	e.GET("/api/prices", pricesCtrl.PricesHandler)
 	e.GET("/api/health/market", healthCtrl.DexMarketCheckHandler)
+	e.GET("/api/health/aggregator", healthCtrl.DexAggregatorCheckHandler)
 
 	//dex related endpoints
 	e.GET("/api/dex/tickers", dexCtrl.TickersHandler)

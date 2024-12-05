@@ -55,7 +55,7 @@ func (r *MarketIntervalRepository) Save(items []*entity.MarketHistoryInterval) e
 }
 
 func (r *MarketIntervalRepository) GetIntervalsByExecutedAt(marketId string, executedAt time.Time, length int) ([]entity.MarketHistoryInterval, error) {
-	query := `
+	q := `
 		SELECT * FROM market_history_interval mhi
 		WHERE mhi.market_id = ?
 		AND mhi.length = ?
@@ -64,7 +64,7 @@ func (r *MarketIntervalRepository) GetIntervalsByExecutedAt(marketId string, exe
 	`
 
 	var results []entity.MarketHistoryInterval
-	err := r.db.Select(&results, query, marketId, length, executedAt)
+	err := r.db.Select(&results, q, marketId, length, executedAt)
 	if err == nil {
 		return results, nil
 	}
