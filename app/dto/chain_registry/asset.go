@@ -1,5 +1,10 @@
 package chain_registry
 
+const (
+	DenomBze  = "bze"
+	DenomUbze = "ubze"
+)
+
 type ChainRegistryAssetDenom struct {
 	Denom    string   `json:"denom"`
 	Exponent int      `json:"exponent"`
@@ -28,4 +33,8 @@ func (a *ChainRegistryAsset) GetDisplayDenomUnit() *ChainRegistryAssetDenom {
 	}
 
 	return nil
+}
+
+func (a *ChainRegistryAssetDenom) IsBZE() bool {
+	return a.Denom == DenomBze || a.Denom == DenomUbze
 }

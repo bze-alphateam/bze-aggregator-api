@@ -14,8 +14,6 @@ const (
 	supplyPath        = "/cosmos/bank/v1beta1/supply"
 	communityPoolPath = "/cosmos/distribution/v1beta1/community_pool"
 	marketHistoryPath = "/bze/tradebin/v1/market_history"
-
-	denom = "ubze"
 )
 
 type supplyResponse struct {
@@ -38,7 +36,7 @@ func NewBlockchainQueryClient(host string) (*BlockchainQueryClient, error) {
 	return &BlockchainQueryClient{host}, nil
 }
 
-func (c *BlockchainQueryClient) GetTotalSupply() (int64, error) {
+func (c *BlockchainQueryClient) GetTotalSupply(denom string) (int64, error) {
 	url := fmt.Sprintf("%s%s", c.Host, supplyPath)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -80,7 +78,7 @@ func (c *BlockchainQueryClient) GetTotalSupply() (int64, error) {
 	return 0, fmt.Errorf("denom %s not found", denom)
 }
 
-func (c *BlockchainQueryClient) GetCommunityPoolTotal() (float64, error) {
+func (c *BlockchainQueryClient) GetCommunityPoolTotal(denom string) (float64, error) {
 	url := fmt.Sprintf("%s%s", c.Host, communityPoolPath)
 	resp, err := http.Get(url)
 	if err != nil {

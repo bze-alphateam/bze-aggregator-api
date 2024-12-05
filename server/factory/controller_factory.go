@@ -6,6 +6,7 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/repository"
 	appService "github.com/bze-alphateam/bze-aggregator-api/app/service"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/data_provider"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/dex"
 	"github.com/bze-alphateam/bze-aggregator-api/connector"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
@@ -39,7 +40,17 @@ func (c *ControllerFactory) GetSupplyController() (*controller.SupplyController,
 		return nil, fmt.Errorf("could not instantiate blockchain query client: %w", err)
 	}
 
-	service, err := appService.NewSupplyService(c.logger, cache, dp)
+	regClient, err := client.NewChainRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(c.logger, cache, regClient)
+	if err != nil {
+		return nil, err
+	}
+
+	service, err := appService.NewSupplyService(c.logger, cache, dp, chainReg)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate supply service: %w", err)
 	}
