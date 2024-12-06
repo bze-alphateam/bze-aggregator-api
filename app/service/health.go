@@ -8,6 +8,8 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/sirupsen/logrus"
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
+	"sync"
 	"time"
 )
 
@@ -15,10 +17,16 @@ const (
 	marketHealthCacheKey   = "health:mh"
 	aggHealthCacheKey      = "health:agg"
 	marketHealthTtlMinutes = 10
+
+	nodesAllowedHeightDiff = 2
 )
 
 type MarketHistoryProvider interface {
 	GetMarketHistory(marketId string, limit int) ([]dto.HistoryOrder, error)
+}
+
+type NodeInfoClient interface {
+	GetStatus() (*coretypes.ResultStatus, error)
 }
 
 type internalHistoryProvider interface {
@@ -31,9 +39,11 @@ type Health struct {
 
 	provider                MarketHistoryProvider
 	internalHistoryProvider internalHistoryProvider
+
+	nodesPool map[string]NodeInfoClient
 }
 
-func NewHealthService(logger logrus.FieldLogger, cache Cache, provider MarketHistoryProvider, internalHistoryProvider internalHistoryProvider) (*Health, error) {
+func NewHealthService(logger logrus.FieldLogger, cache Cache, provider MarketHistoryProvider, internalHistoryProvider internalHistoryProvider, nodes map[string]NodeInfoClient) (*Health, error) {
 	if logger == nil || cache == nil || provider == nil || internalHistoryProvider == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewHealthService")
 	}
@@ -43,6 +53,7 @@ func NewHealthService(logger logrus.FieldLogger, cache Cache, provider MarketHis
 		cache:                   cache,
 		provider:                provider,
 		internalHistoryProvider: internalHistoryProvider,
+		nodesPool:               nodes,
 	}, nil
 }
 
@@ -202,4 +213,58 @@ func (h *Health) getCachedAggregatorHealth(minutesAgo int) *dto.AggregatorHealth
 	}
 
 	return nil
+}
+
+func (h *Health) GetNodesHealth() dto.NodesHealth {
+	if len(h.nodesPool) == 0 {
+		return dto.NodesHealth{}
+	}
+	l := h.logger.WithField("func", "GetNodesHealth")
+
+	resp := make(map[string]*coretypes.ResultStatus, len(h.nodesPool))
+	var wg sync.WaitGroup
+	var mx sync.Mutex
+	var errorsStr string
+	for name, infoClient := range h.nodesPool {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			info, err := infoClient.GetStatus()
+			mx.Lock()
+			defer mx.Unlock()
+			if err != nil {
+				errorsStr += fmt.Sprintf("failed to query: %s;", name)
+				l.WithError(err).WithField("name", name).Error("failed to get latest block")
+
+				return
+			}
+
+			resp[name] = info
+		}()
+	}
+
+	wg.Wait()
+
+	for name, info := range resp {
+		if info == nil {
+			errorsStr += fmt.Sprintf("no info found for: %s;", name)
+			continue
+		}
+
+		for name2, info2 := range resp {
+			if info2 == nil || name == name2 {
+				continue
+			}
+
+			diff := info.SyncInfo.LatestBlockHeight - info2.SyncInfo.LatestBlockHeight
+			if diff > nodesAllowedHeightDiff {
+				errorsStr += fmt.Sprintf("%s is behind %s. Expected height %d, found %d", name2, name, info.SyncInfo.LatestBlockHeight, info2.SyncInfo.LatestBlockHeight)
+			}
+		}
+	}
+
+	return dto.NodesHealth{
+		IsHealthy: errorsStr == "",
+		Errors:    errorsStr,
+	}
 }

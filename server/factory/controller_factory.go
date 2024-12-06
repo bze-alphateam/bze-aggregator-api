@@ -112,7 +112,26 @@ func (c *ControllerFactory) GetHealthController() (*controller.HealthCheckContro
 		return nil, err
 	}
 
-	service, err := appService.NewHealthService(c.logger, cache, dp, repo)
+	var healthClients map[string]appService.NodeInfoClient
+	// from the map of name => host create clients then create blockchain data provider
+	if len(c.config.Blockchain.HealthNodes) > 0 {
+		healthClients = make(map[string]appService.NodeInfoClient, len(c.config.Blockchain.HealthNodes))
+		for hostName, hostAddr := range c.config.Blockchain.HealthNodes {
+			rpc, err := client.GetRpcClient(hostAddr)
+			if err != nil {
+				return nil, err
+			}
+
+			newCl, clErr := data_provider.NewBlockchainProvider(rpc)
+			if clErr != nil {
+				return nil, fmt.Errorf("could not instantiate blockchain query client: %w", clErr)
+			}
+
+			healthClients[hostName] = newCl
+		}
+	}
+
+	service, err := appService.NewHealthService(c.logger, cache, dp, repo, healthClients)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate prices service: %w", err)
 	}

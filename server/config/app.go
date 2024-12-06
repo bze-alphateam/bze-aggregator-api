@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"github.com/joho/godotenv"
+	"strings"
 )
 
 const (
@@ -19,9 +20,10 @@ type PricesConfig struct {
 }
 
 type BlockchainConfig struct {
-	RestHost string
-	RpcHost  string
-	GrpcHost string
+	RestHost    string
+	RpcHost     string
+	GrpcHost    string
+	HealthNodes map[string]string
 }
 
 type Logging struct {
@@ -63,10 +65,28 @@ func NewAppConfig() (*AppConfig, error) {
 		return nil, errors.New("COINGECKO_HOST not found in .env")
 	}
 
+	hn, ok := envFile["HEALTH_NODES"]
+	var healthNodes map[string]string
+	if ok {
+		nodes := strings.Split(hn, ",")
+		if len(nodes) > 0 {
+			healthNodes = make(map[string]string)
+			for _, node := range nodes {
+				nodeSplit := strings.Split(node, "=")
+				if len(nodeSplit) != 2 || nodeSplit[0] == "" || nodeSplit[1] == "" {
+					return nil, errors.New("HEALTH_NODES contains an unknown format")
+				}
+
+				healthNodes[nodeSplit[0]] = nodeSplit[1]
+			}
+		}
+	}
+
 	cfg.Blockchain = BlockchainConfig{
-		RestHost: rest,
-		RpcHost:  rpc,
-		GrpcHost: grpc,
+		RestHost:    rest,
+		RpcHost:     rpc,
+		GrpcHost:    grpc,
+		HealthNodes: healthNodes,
 	}
 
 	cfg.Coingecko = CoingeckoConfig{

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
+	cmtjson "github.com/tendermint/tendermint/libs/json"
+	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	"io"
 	"net/http"
 	"strconv"
@@ -14,6 +16,7 @@ const (
 	supplyPath        = "/cosmos/bank/v1beta1/supply"
 	communityPoolPath = "/cosmos/distribution/v1beta1/community_pool"
 	marketHistoryPath = "/bze/tradebin/v1/market_history"
+	latestBlockPath   = "/cosmos/base/tendermint/v1beta1/blocks/latest"
 )
 
 type supplyResponse struct {
@@ -143,4 +146,36 @@ func (c *BlockchainQueryClient) GetMarketHistory(marketId string, limit int) ([]
 
 func (c *BlockchainQueryClient) getMarketHistoryUrl(marketId string, limit int) string {
 	return fmt.Sprintf("%s%s?market=%s&pagination.limit=%d&pagination.reverse=true", c.Host, marketHistoryPath, marketId, limit)
+}
+
+func (c *BlockchainQueryClient) GetLatestBlock() (*coretypes.ResultBlock, error) {
+	url := fmt.Sprintf("%s%s", c.Host, latestBlockPath)
+	resp, err := http.Get(url)
+	if err != nil {
+
+		return nil, fmt.Errorf("error making request to Cosmos SDK: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+
+		return nil, fmt.Errorf("received non-OK status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+
+		return nil, fmt.Errorf("error reading response body: %w", err)
+	}
+
+	fmt.Println(string(body))
+
+	var data coretypes.ResultBlock
+	err = cmtjson.Unmarshal(body, &data)
+	if err != nil {
+
+		return nil, fmt.Errorf("error unmarshalling response data: %w", err)
+	}
+
+	return &data, nil
 }

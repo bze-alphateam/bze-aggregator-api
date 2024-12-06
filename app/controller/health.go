@@ -12,6 +12,7 @@ import (
 type MarketHealthCheckService interface {
 	GetMarketHealth(marketId string, minutesAgo int) dto.MarketHealth
 	GetAggregatorHealth(minutesAgo int) dto.AggregatorHealth
+	GetNodesHealth() dto.NodesHealth
 }
 
 type HealthCheckController struct {
@@ -60,6 +61,10 @@ func (c *HealthCheckController) DexAggregatorCheckHandler(ctx echo.Context) erro
 	}
 
 	return ctx.JSON(http.StatusOK, c.service.GetAggregatorHealth(params.Minutes))
+}
+
+func (c *HealthCheckController) NodesCheckHandler(ctx echo.Context) error {
+	return ctx.JSON(http.StatusOK, c.service.GetNodesHealth())
 }
 
 func (c *HealthCheckController) getMethodLogger(method string) logrus.FieldLogger {
