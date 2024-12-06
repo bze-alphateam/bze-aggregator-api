@@ -8,12 +8,15 @@ import (
 	types2 "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/rpc/client/http"
 	"strings"
+	"time"
 
 	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 const (
 	tradebinStr = "tradebin"
+
+	heartBeatInterval = time.Second * 60 * 5
 )
 
 type TradebinListener struct {
@@ -56,6 +59,11 @@ func (w *TradebinListener) Listen(msgChan chan<- types2.Event) error {
 	// Use a select statement to listen to both channels concurrently
 	blockChanClosed := false
 	txChanClosed := false
+
+	// Start a ping ticker to keep the connection alive
+	ticker := time.NewTicker(heartBeatInterval) // Adjust interval as needed
+	defer ticker.Stop()
+	w.keepAliveTicker(ticker)
 
 	// Use a select statement to listen to both channels concurrently
 	for {
@@ -100,4 +108,21 @@ func (w *TradebinListener) Listen(msgChan chan<- types2.Event) error {
 			}
 		}
 	}
+}
+
+func (w *TradebinListener) keepAliveTicker(ticker *time.Ticker) {
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				resp, err := w.client.Health(context.Background())
+				_ = resp
+				if err != nil {
+					w.logger.WithError(err).Error("failed to send keep alive request")
+				} else {
+					w.logger.Info("keep alive request success")
+				}
+			}
+		}
+	}()
 }

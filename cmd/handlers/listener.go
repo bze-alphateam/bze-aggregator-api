@@ -86,6 +86,7 @@ func (l *Listener) ListenAndSync() error {
 		err := blockchain.Listen(msgChan)
 		if err != nil {
 			l.logger.WithError(err).Error("error listening for messages")
+			close(msgChan)
 		}
 	}()
 
