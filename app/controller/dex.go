@@ -108,6 +108,10 @@ func (d *Dex) OrdersHandler(ctx echo.Context) error {
 			return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
 		}
 
+		if data == nil {
+			return ctx.JSON(http.StatusOK, []struct{}{})
+		}
+
 		return ctx.JSON(http.StatusOK, data)
 	}
 
@@ -116,6 +120,10 @@ func (d *Dex) OrdersHandler(ctx echo.Context) error {
 		l.WithError(err).Error("error when getting orders")
 
 		return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
+	}
+
+	if data == nil {
+		return ctx.JSON(http.StatusOK, []struct{}{})
 	}
 
 	return ctx.JSON(http.StatusOK, data)
@@ -145,6 +153,10 @@ func (d *Dex) HistoryHandler(ctx echo.Context) error {
 			return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
 		}
 
+		if data == nil {
+			return ctx.JSON(http.StatusOK, []struct{}{})
+		}
+
 		return ctx.JSON(http.StatusOK, data)
 	}
 
@@ -153,6 +165,10 @@ func (d *Dex) HistoryHandler(ctx echo.Context) error {
 		l.WithError(err).Error("error when getting history")
 
 		return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
+	}
+
+	if data == nil {
+		return ctx.JSON(http.StatusOK, []struct{}{})
 	}
 
 	return ctx.JSON(http.StatusOK, data)
@@ -182,6 +198,10 @@ func (d *Dex) IntervalsHandler(ctx echo.Context) error {
 			return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
 		}
 
+		if data == nil {
+			return ctx.JSON(http.StatusOK, []struct{}{})
+		}
+
 		return ctx.JSON(http.StatusOK, data)
 	}
 
@@ -190,6 +210,10 @@ func (d *Dex) IntervalsHandler(ctx echo.Context) error {
 		l.WithError(err).Error("error when getting history")
 
 		return ctx.JSON(http.StatusBadRequest, request.NewUnknownErrorResponse())
+	}
+
+	if data == nil {
+		return ctx.JSON(http.StatusOK, []struct{}{})
 	}
 
 	return ctx.JSON(http.StatusOK, data)
