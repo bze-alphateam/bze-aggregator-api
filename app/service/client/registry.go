@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	assetListUrl = "https://raw.githubusercontent.com/cosmos/chain-registry/refs/heads/master/beezee/assetlist.json"
+	assetListUrl = "https://raw.githubusercontent.com/faneaatiku/chain-registry/refs/heads/master/beezee/assetlist.json"
 )
 
 type ChainRegistry struct {
