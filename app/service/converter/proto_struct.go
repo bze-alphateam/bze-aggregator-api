@@ -13,6 +13,7 @@ func NewMarketEntity(source *tradebinTypes.Market) *entity.Market {
 		Base:      source.GetBase(),
 		Quote:     source.GetQuote(),
 		CreatedBy: source.GetCreator(),
+		CreatedAt: time.Now(),
 	}
 }
 

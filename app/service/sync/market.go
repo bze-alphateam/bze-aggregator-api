@@ -16,14 +16,19 @@ type marketRepo interface {
 	SaveIfNotExists(items []*entity.Market) error
 }
 
+type marketHistoryRepo interface {
+	GetFirstMarketOrder(marketId string) (*entity.MarketHistory, error)
+}
+
 type Market struct {
 	storage  marketRepo
 	logger   logrus.FieldLogger
 	provider marketProvider
+	history  marketHistoryRepo
 }
 
-func NewMarketSync(logger logrus.FieldLogger, storage marketRepo, provider marketProvider) (*Market, error) {
-	if storage == nil || logger == nil || provider == nil {
+func NewMarketSync(logger logrus.FieldLogger, storage marketRepo, provider marketProvider, histRepo marketHistoryRepo) (*Market, error) {
+	if storage == nil || logger == nil || provider == nil || histRepo == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewMarketSync")
 	}
 
@@ -31,6 +36,7 @@ func NewMarketSync(logger logrus.FieldLogger, storage marketRepo, provider marke
 		storage:  storage,
 		logger:   logger.WithField("service", "MarketSync"),
 		provider: provider,
+		history:  histRepo,
 	}, nil
 }
 
@@ -45,6 +51,15 @@ func (m *Market) SyncMarkets() error {
 	var entities []*entity.Market
 	for _, source := range list {
 		target := converter.NewMarketEntity(&source)
+		hist, err := m.history.GetFirstMarketOrder(target.MarketID)
+		if err != nil {
+			return err
+		}
+
+		if hist != nil {
+			target.CreatedAt = hist.ExecutedAt
+		}
+
 		entities = append(entities, target)
 	}
 

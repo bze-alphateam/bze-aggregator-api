@@ -43,10 +43,10 @@ func (r *MarketRepository) SaveIfNotExists(items []*entity.Market) error {
 	INSERT INTO market (
 		market_id, base, quote, created_by, i_created_at
 	) VALUES (
-		:market_id, :base, :quote, :created_by, NOW()
+		:market_id, :base, :quote, :created_by, :i_created_at
 	) 
 	ON DUPLICATE KEY UPDATE 
-		market_id=market_id;`
+		i_created_at = VALUES(i_created_at);`
 
 	_, err := r.db.NamedExec(query, items)
 	if err != nil {

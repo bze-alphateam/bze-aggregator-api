@@ -35,7 +35,12 @@ func GetMarketsSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*h
 		return nil, err
 	}
 
-	storage, err := sync.NewMarketSync(logger, repo, provider)
+	history, err := repository.NewMarketHistoryRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	storage, err := sync.NewMarketSync(logger, repo, provider, history)
 	if err != nil {
 		return nil, err
 	}
@@ -210,12 +215,12 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	market, err := sync.NewMarketSync(logger, mRepo, mProvider)
+	hRepo, err := repository.NewMarketHistoryRepository(db)
 	if err != nil {
 		return nil, err
 	}
 
-	hRepo, err := repository.NewMarketHistoryRepository(db)
+	market, err := sync.NewMarketSync(logger, mRepo, mProvider, hRepo)
 	if err != nil {
 		return nil, err
 	}
