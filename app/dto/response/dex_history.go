@@ -21,4 +21,6 @@ type HistoryTrade struct {
 	QuoteVolume string `json:"quote_volume"`
 	ExecutedAt  string `json:"executed_at"`
 	OrderType   string `json:"order_type"`
+	Maker       string `json:"maker"`
+	Taker       string `json:"taker"`
 }

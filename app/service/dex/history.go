@@ -45,6 +45,8 @@ func (h *HistoryService) GetHistory(params *request.HistoryParams) ([]response.H
 			QuoteVolume: order.QuoteAmount,
 			ExecutedAt:  fmt.Sprintf("%d", order.ExecutedAt.UnixMilli()),
 			OrderType:   order.OrderType,
+			Maker:       order.Maker,
+			Taker:       order.Taker,
 		}
 
 		result = append(result, tr)
