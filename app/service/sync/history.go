@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	requestedHistoryLength uint64 = 5000
+	requestedHistoryLength uint64 = 500
 )
 
 type assetProvider interface {

@@ -32,6 +32,7 @@ func (o *History) GetMarketHistory(marketId string, limit uint64, key string) ([
 
 	params := o.getHistoryQueryParams(marketId, limit, key)
 	o.logger.Info("fetching history orders from blockchain")
+	o.logger.WithField("params", params).Info("using params to get market history")
 
 	res, err := qc.MarketHistory(context.Background(), params)
 	if err != nil {
@@ -47,7 +48,7 @@ func (o *History) getHistoryQueryParams(marketId string, limit uint64, key strin
 		Pagination: &query.PageRequest{
 			Limit:      limit,
 			Reverse:    true,
-			CountTotal: true,
+			CountTotal: false,
 		},
 	}
 

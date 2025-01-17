@@ -91,7 +91,7 @@ func (l *Listener) ListenAndSync() error {
 	}()
 
 	for msg := range msgChan {
-		l.handleMessage(msg)
+		go l.handleMessage(msg)
 	}
 
 	return nil
