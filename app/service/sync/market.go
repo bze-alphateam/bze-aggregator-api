@@ -6,6 +6,7 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 type marketProvider interface {
@@ -17,7 +18,7 @@ type marketRepo interface {
 }
 
 type marketHistoryRepo interface {
-	GetFirstMarketOrder(marketId string) (*entity.MarketHistory, error)
+	GetFirstMarketOrderTime(marketId string) (time.Time, error)
 }
 
 type Market struct {
@@ -51,13 +52,14 @@ func (m *Market) SyncMarkets() error {
 	var entities []*entity.Market
 	for _, source := range list {
 		target := converter.NewMarketEntity(&source)
-		hist, err := m.history.GetFirstMarketOrder(target.MarketID)
+		hist, err := m.history.GetFirstMarketOrderTime(target.MarketID)
 		if err != nil {
 			return err
 		}
 
-		if hist != nil {
-			target.CreatedAt = hist.ExecutedAt
+		if hist.After(time.Time{}) {
+			//subtract 1 minute to make sure first order is included
+			target.CreatedAt = hist.Add(-time.Minute)
 		}
 
 		entities = append(entities, target)

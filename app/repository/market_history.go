@@ -170,18 +170,18 @@ func (r *MarketHistoryRepository) GetHistoryBy(params request.HistoryParams) ([]
 	return nil, err
 }
 
-func (r *MarketHistoryRepository) GetFirstMarketOrder(marketId string) (*entity.MarketHistory, error) {
+func (r *MarketHistoryRepository) GetFirstMarketOrderTime(marketId string) (time.Time, error) {
 	ent := entity.MarketHistory{}
 	query := `SELECT * FROM market_history WHERE market_id = ? ORDER BY executed_at ASC LIMIT 1`
 
 	err := r.db.Get(&ent, query, marketId)
 	if err == nil {
-		return &ent, nil
+		return ent.ExecutedAt, nil
 	}
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return time.Time{}, nil
 	}
 
-	return nil, err
+	return time.Time{}, err
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 type History struct {
@@ -30,7 +31,7 @@ func (o *History) GetMarketHistory(marketId string, limit uint64, key string) ([
 		return nil, "", err
 	}
 
-	params := o.getHistoryQueryParams(marketId, limit, key)
+	params := o.getHistoryQueryParams(marketId, limit, key, true)
 	o.logger.Info("fetching history orders from blockchain")
 	o.logger.WithField("params", params).Info("using params to get market history")
 
@@ -42,12 +43,12 @@ func (o *History) GetMarketHistory(marketId string, limit uint64, key string) ([
 
 	return res.GetList(), string(res.GetPagination().GetNextKey()), nil
 }
-func (o *History) getHistoryQueryParams(marketId string, limit uint64, key string) *types.QueryMarketHistoryRequest {
+func (o *History) getHistoryQueryParams(marketId string, limit uint64, key string, reverse bool) *types.QueryMarketHistoryRequest {
 	res := types.QueryMarketHistoryRequest{
 		Market: marketId,
 		Pagination: &query.PageRequest{
 			Limit:      limit,
-			Reverse:    true,
+			Reverse:    reverse,
 			CountTotal: false,
 		},
 	}
@@ -57,4 +58,27 @@ func (o *History) getHistoryQueryParams(marketId string, limit uint64, key strin
 	}
 
 	return &res
+}
+
+func (o *History) GetFirstMarketOrderTime(marketId string) (time.Time, error) {
+	qc, err := o.provider.GetTradebinQueryClient()
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	params := o.getHistoryQueryParams(marketId, 1, "", false)
+	o.logger.Info("fetching first market order from blockchain")
+	o.logger.WithField("params", params).Info("using params to get market history")
+
+	res, err := qc.MarketHistory(context.Background(), params)
+	if err != nil {
+		return time.Time{}, err
+	}
+	o.logger.Info("history orders fetched")
+
+	if len(res.GetList()) == 0 {
+		return time.Time{}, nil
+	}
+
+	return time.Unix(res.GetList()[0].GetExecutedAt(), 0), nil
 }
