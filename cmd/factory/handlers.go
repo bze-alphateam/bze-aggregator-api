@@ -25,7 +25,7 @@ func GetMarketsSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*h
 		return nil, err
 	}
 
-	grpc, err := client.NewGrpcClient(cfg, locker)
+	grpc, err := client.NewGrpcClient(cfg, locker, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func GetMarketOrderSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger)
 		return nil, err
 	}
 
-	grpc, err := client.NewGrpcClient(cfg, locker)
+	grpc, err := client.NewGrpcClient(cfg, locker, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func GetMarketHistorySyncHandler(cfg *config.AppConfig, logger logrus.FieldLogge
 		return nil, err
 	}
 
-	grpc, err := client.NewGrpcClient(cfg, locker)
+	grpc, err := client.NewGrpcClient(cfg, locker, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func GetMarketIntervalSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogg
 		return nil, err
 	}
 
-	grpc, err := client.NewGrpcClient(cfg, locker)
+	grpc, err := client.NewGrpcClient(cfg, locker, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	grpc, err := client.NewGrpcClient(cfg, locker)
+	grpc, err := client.NewGrpcClient(cfg, locker, logger)
 	if err != nil {
 		return nil, err
 	}

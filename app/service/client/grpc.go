@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -24,9 +25,10 @@ type GrpcClient struct {
 	host   string
 	locker ConnectionLocker
 	conn   *grpc.ClientConn
+	logger logrus.FieldLogger
 }
 
-func NewGrpcClient(cfg *config.AppConfig, locker ConnectionLocker) (*GrpcClient, error) {
+func NewGrpcClient(cfg *config.AppConfig, locker ConnectionLocker, logger logrus.FieldLogger) (*GrpcClient, error) {
 	if cfg.Blockchain.GrpcHost == "" {
 		return nil, fmt.Errorf("grpc host is required")
 	}
@@ -35,9 +37,14 @@ func NewGrpcClient(cfg *config.AppConfig, locker ConnectionLocker) (*GrpcClient,
 		return nil, fmt.Errorf("grpc client requires locker")
 	}
 
+	if logger == nil {
+		return nil, fmt.Errorf("grpc client requires logger")
+	}
+
 	return &GrpcClient{
 		host:   cfg.Blockchain.GrpcHost,
 		locker: locker,
+		logger: logger,
 	}, nil
 }
 
@@ -64,9 +71,17 @@ func (c *GrpcClient) getConnection() (*grpc.ClientConn, error) {
 	//make it thread safe
 	c.locker.Lock(lockName)
 	defer c.locker.Unlock(lockName)
-	if c.conn != nil && c.conn.GetState() != connectivity.Shutdown {
+	if c.conn != nil && c.conn.GetState() == connectivity.Ready {
+		c.logger.Debug("grpc client connection ready")
+		
 		return c.conn, nil
 	}
+
+	if c.conn != nil {
+		c.logger.Info("grpc client connection exists with status:", c.conn.GetState().String())
+	}
+
+	c.logger.Info("connecting to grpc host:", c.host)
 
 	cred, err := c.loadTLSCredentials()
 	if err != nil {
