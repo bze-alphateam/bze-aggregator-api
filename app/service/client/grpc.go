@@ -26,6 +26,7 @@ type GrpcClient struct {
 	locker ConnectionLocker
 	conn   *grpc.ClientConn
 	logger logrus.FieldLogger
+	useTLS bool
 }
 
 func NewGrpcClient(cfg *config.AppConfig, locker ConnectionLocker, logger logrus.FieldLogger) (*GrpcClient, error) {
@@ -45,6 +46,7 @@ func NewGrpcClient(cfg *config.AppConfig, locker ConnectionLocker, logger logrus
 		host:   cfg.Blockchain.GrpcHost,
 		locker: locker,
 		logger: logger,
+		useTLS: cfg.Blockchain.UseGrpcTls,
 	}, nil
 }
 
@@ -73,7 +75,7 @@ func (c *GrpcClient) getConnection() (*grpc.ClientConn, error) {
 	defer c.locker.Unlock(lockName)
 	if c.conn != nil && c.conn.GetState() == connectivity.Ready {
 		c.logger.Debug("grpc client connection ready")
-		
+
 		return c.conn, nil
 	}
 
@@ -83,14 +85,21 @@ func (c *GrpcClient) getConnection() (*grpc.ClientConn, error) {
 
 	c.logger.Info("connecting to grpc host:", c.host)
 
-	cred, err := c.loadTLSCredentials()
-	if err != nil {
-		return nil, err
+	var dialOptions []grpc.DialOption
+	if c.useTLS {
+		cred, err := c.loadTLSCredentials()
+		if err != nil {
+			return nil, err
+		}
+
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
+	} else {
+		dialOptions = append(dialOptions, grpc.WithInsecure())
 	}
 
 	grpcConn, err := grpc.Dial(
 		c.host,
-		grpc.WithTransportCredentials(cred),
+		dialOptions...,
 	)
 
 	if err != nil {

@@ -24,6 +24,8 @@ type BlockchainConfig struct {
 	RpcHost     string
 	GrpcHost    string
 	HealthNodes map[string]string
+
+	UseGrpcTls bool
 }
 
 type Logging struct {
@@ -65,6 +67,11 @@ func NewAppConfig() (*AppConfig, error) {
 		return nil, errors.New("COINGECKO_HOST not found in .env")
 	}
 
+	useGrpcTls, ok := envFile["BLOCKCHAIN_GRPC_USE_TLS"]
+	if ok {
+		cfg.Blockchain.UseGrpcTls = useGrpcTls == "true"
+	}
+
 	hn, ok := envFile["HEALTH_NODES"]
 	var healthNodes map[string]string
 	if ok {
@@ -82,12 +89,10 @@ func NewAppConfig() (*AppConfig, error) {
 		}
 	}
 
-	cfg.Blockchain = BlockchainConfig{
-		RestHost:    rest,
-		RpcHost:     rpc,
-		GrpcHost:    grpc,
-		HealthNodes: healthNodes,
-	}
+	cfg.Blockchain.HealthNodes = healthNodes
+	cfg.Blockchain.RestHost = rest
+	cfg.Blockchain.RpcHost = rpc
+	cfg.Blockchain.GrpcHost = grpc
 
 	cfg.Coingecko = CoingeckoConfig{
 		Host: cg,
