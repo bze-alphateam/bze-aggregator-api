@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"time"
 )
 
@@ -69,10 +70,12 @@ func (r *MarketRepository) GetMarketsWithLastExecuted(hours int) ([]entity.Marke
 		FROM market m
 		LEFT JOIN market_history mh on mh.market_id = m.market_id
 			AND mh.executed_at = (
-				SELECT MAX(executed_at)
+				SELECT executed_at
 				FROM market_history
 				WHERE market_id = m.market_id
 				AND executed_at > ?
+				ORDER BY executed_at DESC
+				LIMIT 1
 			)
 		ORDER BY id ASC
 `
@@ -80,7 +83,7 @@ func (r *MarketRepository) GetMarketsWithLastExecuted(hours int) ([]entity.Marke
 	var results []entity.MarketWithLastPrice
 	err := r.db.Select(&results, query, executedAt)
 	if err == nil {
-		return results, nil
+		return r.groupDuplicateMarketsWithLastPrice(results), nil
 	}
 
 	if errors.Is(err, sql.ErrNoRows) {
@@ -88,4 +91,54 @@ func (r *MarketRepository) GetMarketsWithLastExecuted(hours int) ([]entity.Marke
 	}
 
 	return nil, err
+}
+
+// groupDuplicateMarketsWithLastPrice processes a list of markets to group duplicates and calculate the average price for each market.
+// It returns a deduplicated slice where each market has a last price averaged across all occurrences in the input slice.
+func (r *MarketRepository) groupDuplicateMarketsWithLastPrice(items []entity.MarketWithLastPrice) []entity.MarketWithLastPrice {
+	marketsSums := make(map[string]sdk.Dec)
+	marketsCount := make(map[string]int64)
+	var duplicatesRemoved []entity.MarketWithLastPrice
+	for _, i := range items {
+		_, ok := marketsSums[i.MarketID]
+		if !ok {
+			duplicatesRemoved = append(duplicatesRemoved, i)
+			marketsSums[i.MarketID] = sdk.ZeroDec()
+		}
+
+		_, ok = marketsCount[i.MarketID]
+		if !ok {
+			marketsCount[i.MarketID] = 0
+		}
+
+		marketsCount[i.MarketID]++
+
+		priceDec := sdk.ZeroDec()
+		if i.LastPrice.Valid {
+			priceDec = sdk.MustNewDecFromStr(i.LastPrice.String)
+		}
+
+		marketsSums[i.MarketID] = marketsSums[i.MarketID].Add(priceDec)
+	}
+
+	for _, i := range duplicatesRemoved {
+		total, ok := marketsSums[i.MarketID]
+		if !ok {
+			//should never happen
+			continue
+		}
+
+		counter, ok := marketsCount[i.MarketID]
+		if !ok {
+			//should never happen
+			continue
+		}
+
+		i.LastPrice = sql.NullString{
+			String: total.QuoInt64(counter).String(),
+			Valid:  true,
+		}
+	}
+
+	return duplicatesRemoved
 }
