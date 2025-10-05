@@ -68,16 +68,15 @@ func (r *MarketRepository) GetMarketsWithLastExecuted(hours int) ([]entity.Marke
 			m.i_created_at as i_created_at,
 			mh.price as last_price
 		FROM market m
-		LEFT JOIN market_history mh on mh.market_id = m.market_id
-			AND mh.executed_at = (
-				SELECT executed_at
-				FROM market_history
-				WHERE market_id = m.market_id
-				AND executed_at > ?
-				ORDER BY executed_at DESC
-				LIMIT 1
-			)
-		ORDER BY id ASC
+		LEFT JOIN (
+			SELECT 
+				market_id,
+				price,
+				ROW_NUMBER() OVER (PARTITION BY market_id ORDER BY executed_at DESC) as rn
+			FROM market_history
+			WHERE executed_at > ?
+		) mh ON mh.market_id = m.market_id AND mh.rn = 1
+		ORDER BY m.id ASC;
 `
 	executedAt := time.Now().Add(-time.Hour * time.Duration(hours))
 	var results []entity.MarketWithLastPrice
