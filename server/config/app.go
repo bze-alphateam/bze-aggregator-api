@@ -2,14 +2,18 @@ package config
 
 import (
 	"errors"
-	"github.com/joho/godotenv"
+	"fmt"
 	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 const (
 	defaultPort         = "8000"
 	defaultLoggingLevel = "info"
 )
+
+type PrefixedEndpoints map[string]string
 
 type CoingeckoConfig struct {
 	Host string
@@ -37,11 +41,12 @@ type Server struct {
 }
 
 type AppConfig struct {
-	Server     Server
-	Logging    Logging
-	Blockchain BlockchainConfig
-	Prices     PricesConfig
-	Coingecko  CoingeckoConfig
+	Server            Server
+	Logging           Logging
+	Blockchain        BlockchainConfig
+	Prices            PricesConfig
+	Coingecko         CoingeckoConfig
+	PrefixedEndpoints PrefixedEndpoints
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -72,21 +77,9 @@ func NewAppConfig() (*AppConfig, error) {
 		cfg.Blockchain.UseGrpcTls = useGrpcTls == "true"
 	}
 
-	hn, ok := envFile["HEALTH_NODES"]
-	var healthNodes map[string]string
-	if ok {
-		nodes := strings.Split(hn, ",")
-		if len(nodes) > 0 {
-			healthNodes = make(map[string]string)
-			for _, node := range nodes {
-				nodeSplit := strings.Split(node, "=")
-				if len(nodeSplit) != 2 || nodeSplit[0] == "" || nodeSplit[1] == "" {
-					return nil, errors.New("HEALTH_NODES contains an unknown format")
-				}
-
-				healthNodes[nodeSplit[0]] = nodeSplit[1]
-			}
-		}
+	healthNodes, err := parseEnvVarMap(envFile, "HEALTH_NODES")
+	if err != nil {
+		return nil, err
 	}
 
 	cfg.Blockchain.HealthNodes = healthNodes
@@ -96,6 +89,11 @@ func NewAppConfig() (*AppConfig, error) {
 
 	cfg.Coingecko = CoingeckoConfig{
 		Host: cg,
+	}
+
+	cfg.PrefixedEndpoints, err = parseEnvVarMap(envFile, "PREFIXED_REST_HOSTS")
+	if err != nil {
+		return nil, err
 	}
 
 	return cfg, nil
@@ -142,4 +140,25 @@ func loadDefaultConfig(env map[string]string, err error) *AppConfig {
 			Denominations: prices,
 		},
 	}
+}
+
+func parseEnvVarMap(envFile map[string]string, envVar string) (map[string]string, error) {
+	envValue, ok := envFile[envVar]
+	var result map[string]string
+	if ok {
+		nodes := strings.Split(envValue, ",")
+		if len(nodes) > 0 {
+			result = make(map[string]string)
+			for _, node := range nodes {
+				nodeSplit := strings.Split(node, "=")
+				if len(nodeSplit) != 2 || nodeSplit[0] == "" || nodeSplit[1] == "" {
+					return nil, errors.New(fmt.Sprintf("env var %s contains an unknown format: %s", envVar, envValue))
+				}
+
+				result[nodeSplit[0]] = nodeSplit[1]
+			}
+		}
+	}
+
+	return result, nil
 }

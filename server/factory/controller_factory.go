@@ -2,12 +2,14 @@ package factory
 
 import (
 	"fmt"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/controller"
 	"github.com/bze-alphateam/bze-aggregator-api/app/repository"
 	appService "github.com/bze-alphateam/bze-aggregator-api/app/service"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/data_provider"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/dex"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/health"
 	"github.com/bze-alphateam/bze-aggregator-api/connector"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	"github.com/sirupsen/logrus"
@@ -136,7 +138,12 @@ func (c *ControllerFactory) GetHealthController() (*controller.HealthCheckContro
 		return nil, fmt.Errorf("could not instantiate prices service: %w", err)
 	}
 
-	return controller.NewHealthCheckController(c.logger, service)
+	balanceHealthService, err := health.NewBalancesHealth(c.config.PrefixedEndpoints)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate balance health service: %w", err)
+	}
+
+	return controller.NewHealthCheckController(c.logger, service, balanceHealthService)
 }
 
 func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {

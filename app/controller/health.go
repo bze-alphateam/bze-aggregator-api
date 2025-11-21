@@ -1,13 +1,20 @@
 package controller
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
+
+type BalanceHealthCheckService interface {
+	CheckBalances(params *request.BalanceHealthParams) []dto.AddressHealthCheck
+}
 
 type MarketHealthCheckService interface {
 	GetMarketHealth(marketId string, minutesAgo int) dto.MarketHealth
@@ -16,18 +23,20 @@ type MarketHealthCheckService interface {
 }
 
 type HealthCheckController struct {
-	logger  logrus.FieldLogger
-	service MarketHealthCheckService
+	logger         logrus.FieldLogger
+	service        MarketHealthCheckService
+	balanceChecker BalanceHealthCheckService
 }
 
-func NewHealthCheckController(logger logrus.FieldLogger, service MarketHealthCheckService) (*HealthCheckController, error) {
-	if logger == nil || service == nil {
+func NewHealthCheckController(logger logrus.FieldLogger, service MarketHealthCheckService, balance BalanceHealthCheckService) (*HealthCheckController, error) {
+	if logger == nil || service == nil || balance == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewHealthCheckController")
 	}
 
 	return &HealthCheckController{
-		logger:  logger,
-		service: service,
+		logger:         logger,
+		service:        service,
+		balanceChecker: balance,
 	}, nil
 }
 
@@ -69,4 +78,34 @@ func (c *HealthCheckController) NodesCheckHandler(ctx echo.Context) error {
 
 func (c *HealthCheckController) getMethodLogger(method string) logrus.FieldLogger {
 	return c.logger.WithField("struct", "HealthCheckController").WithField("method", method)
+}
+
+func (c *HealthCheckController) CheckBalancesHandler(ctx echo.Context) error {
+	params, err := request.NewBalanceHealthParams(ctx)
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse("invalid request"))
+	}
+
+	result := response.BalanceHealthResponse{
+		IsHealthy: true,
+		Errors:    "",
+	}
+	checkResult := c.balanceChecker.CheckBalances(params)
+	for _, cr := range checkResult {
+		if cr.IsHealthy {
+			continue
+		}
+		result.IsHealthy = false
+
+		addrErr := fmt.Sprintf("[%s]: [%s]", cr.Address, cr.Error)
+		//add first error
+		if result.Errors == "" {
+			result.Errors = addrErr
+			continue
+		}
+
+		result.Errors = fmt.Sprintf("%s; %s", result.Errors, addrErr)
+	}
+
+	return ctx.JSON(http.StatusOK, result)
 }

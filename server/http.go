@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	"github.com/bze-alphateam/bze-aggregator-api/server/factory"
@@ -64,6 +65,7 @@ func Start() {
 	e.GET("/api/health/market", healthCtrl.DexMarketCheckHandler)
 	e.GET("/api/health/aggregator", healthCtrl.DexAggregatorCheckHandler)
 	e.GET("/api/health/nodes", healthCtrl.NodesCheckHandler)
+	e.POST("/api/health/balances", healthCtrl.CheckBalancesHandler)
 
 	//dex related endpoints
 	e.GET("/api/dex/tickers", dexCtrl.TickersHandler)

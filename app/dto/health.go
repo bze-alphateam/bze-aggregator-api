@@ -16,3 +16,9 @@ type NodesHealth struct {
 	IsHealthy bool   `json:"is_healthy"`
 	Errors    string `json:"errors"`
 }
+
+type AddressHealthCheck struct {
+	Address   string `json:"address"`
+	IsHealthy bool   `json:"is_healthy"`
+	Error     string `json:"error"`
+}
