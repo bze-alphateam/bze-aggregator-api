@@ -1,14 +1,15 @@
 package handlers
 
 import (
+	"strings"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/listener"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze/x/tradebin/types"
+	types2 "github.com/cometbft/cometbft/abci/types"
 	"github.com/sirupsen/logrus"
-	types2 "github.com/tendermint/tendermint/abci/types"
-	"strings"
 )
 
 const (

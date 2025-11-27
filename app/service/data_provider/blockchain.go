@@ -2,6 +2,7 @@ package data_provider
 
 import (
 	"context"
+
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"

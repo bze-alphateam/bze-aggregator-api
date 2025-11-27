@@ -3,14 +3,15 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/sirupsen/logrus"
-	"sync"
-	"time"
 )
 
 const (

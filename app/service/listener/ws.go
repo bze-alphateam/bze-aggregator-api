@@ -3,12 +3,13 @@ package listener
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/sirupsen/logrus"
-	"strings"
-	"time"
 
 	tmtypes "github.com/cometbft/cometbft/types"
 )
