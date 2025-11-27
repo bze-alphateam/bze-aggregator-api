@@ -3,10 +3,11 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"time"
+
+	"cosmossdk.io/math"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"time"
 )
 
 type MarketRepository struct {
@@ -95,14 +96,14 @@ func (r *MarketRepository) GetMarketsWithLastExecuted(hours int) ([]entity.Marke
 // groupDuplicateMarketsWithLastPrice processes a list of markets to group duplicates and calculate the average price for each market.
 // It returns a deduplicated slice where each market has a last price averaged across all occurrences in the input slice.
 func (r *MarketRepository) groupDuplicateMarketsWithLastPrice(items []entity.MarketWithLastPrice) []entity.MarketWithLastPrice {
-	marketsSums := make(map[string]sdk.Dec)
+	marketsSums := make(map[string]math.LegacyDec)
 	marketsCount := make(map[string]int64)
 	var duplicatesRemoved []entity.MarketWithLastPrice
 	for _, i := range items {
 		_, ok := marketsSums[i.MarketID]
 		if !ok {
 			duplicatesRemoved = append(duplicatesRemoved, i)
-			marketsSums[i.MarketID] = sdk.ZeroDec()
+			marketsSums[i.MarketID] = math.LegacyZeroDec()
 		}
 
 		_, ok = marketsCount[i.MarketID]
@@ -112,9 +113,9 @@ func (r *MarketRepository) groupDuplicateMarketsWithLastPrice(items []entity.Mar
 
 		marketsCount[i.MarketID]++
 
-		priceDec := sdk.ZeroDec()
+		priceDec := math.LegacyZeroDec()
 		if i.LastPrice.Valid {
-			priceDec = sdk.MustNewDecFromStr(i.LastPrice.String)
+			priceDec = math.LegacyMustNewDecFromStr(i.LastPrice.String)
 		}
 
 		marketsSums[i.MarketID] = marketsSums[i.MarketID].Add(priceDec)
