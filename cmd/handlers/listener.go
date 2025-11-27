@@ -103,7 +103,7 @@ func (l *Listener) handleMessage(event types2.Event) {
 	m := l.getEventMarket(event)
 
 	switch event.Type {
-	case "bze.tradebin.v1.MarketCreatedEvent":
+	case "bze.tradebin.MarketCreatedEvent":
 		eventLogger.Info("syncing markets")
 		err := l.m.SyncMarkets()
 		if err != nil {
@@ -117,7 +117,7 @@ func (l *Listener) handleMessage(event types2.Event) {
 		if err != nil {
 			eventLogger.WithError(err).Error("error when trying to resync all markets")
 		}
-	case "bze.tradebin.v1.OrderExecutedEvent":
+	case "bze.tradebin.OrderExecutedEvent":
 		eventLogger.Info("syncing history")
 		if m == nil {
 			eventLogger.Error("could not find market for this event")
@@ -134,9 +134,9 @@ func (l *Listener) handleMessage(event types2.Event) {
 		}
 
 		fallthrough
-	case "bze.tradebin.v1.OrderCanceledEvent":
+	case "bze.tradebin.OrderCanceledEvent":
 		fallthrough
-	case "bze.tradebin.v1.OrderSavedEvent":
+	case "bze.tradebin.OrderSavedEvent":
 		eventLogger.Info("syncing orders")
 		if m == nil {
 			eventLogger.Error("could not find market for this event")
