@@ -7,11 +7,11 @@ import (
 	"strings"
 	"sync"
 
+	"cosmossdk.io/math"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/query"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	cmtjson "github.com/tendermint/tendermint/libs/json"
 )
 
@@ -43,7 +43,7 @@ func (b *BalancesHealth) CheckBalances(params *request.BalanceHealthParams) []dt
 				Error:     "",
 			}
 
-			minAmt := sdk.NewInt(p.MinAmount)
+			minAmt := math.NewInt(p.MinAmount)
 			balance, err := b.getAddressDenomBalance(p.Address, p.Denom)
 			if err != nil {
 				result.IsHealthy = false
@@ -64,16 +64,16 @@ func (b *BalancesHealth) CheckBalances(params *request.BalanceHealthParams) []dt
 	return response
 }
 
-func (b *BalancesHealth) getAddressDenomBalance(address, denom string) (sdk.Int, error) {
+func (b *BalancesHealth) getAddressDenomBalance(address, denom string) (math.Int, error) {
 	allBalances, err := b.getAddressBalance(address)
-	zero := sdk.ZeroInt()
+	zero := math.ZeroInt()
 	if err != nil {
 		return zero, err
 	}
 
 	for _, balance := range allBalances.Balances {
 		if balance.Denom == denom {
-			amt, ok := sdk.NewIntFromString(balance.Amount)
+			amt, ok := math.NewIntFromString(balance.Amount)
 			if !ok {
 				return zero, fmt.Errorf("error parsing balance amount")
 			}

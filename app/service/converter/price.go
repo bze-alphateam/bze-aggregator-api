@@ -2,10 +2,11 @@ package converter
 
 import (
 	"fmt"
-	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"math"
 	"strings"
+
+	math2 "cosmossdk.io/math"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
 )
 
 func UPriceToPrice(base, quote *chain_registry.ChainRegistryAsset, price string) (string, float64, error) {
@@ -19,7 +20,7 @@ func UPriceToPrice(base, quote *chain_registry.ChainRegistryAsset, price string)
 		return "", 0, fmt.Errorf("no display denom for quote asset")
 	}
 
-	priceDec, err := sdk.NewDecFromStr(price)
+	priceDec, err := math2.LegacyNewDecFromStr(price)
 	if err != nil {
 		return "", 0, err
 	}
@@ -28,7 +29,7 @@ func UPriceToPrice(base, quote *chain_registry.ChainRegistryAsset, price string)
 		return TrimAmountTrailingZeros(price), priceDec.MustFloat64(), nil
 	}
 
-	multiplier := sdk.MustNewDecFromStr(fmt.Sprintf("%.2f", math.Pow10(bd.Exponent-qd.Exponent)))
+	multiplier := math2.LegacyMustNewDecFromStr(fmt.Sprintf("%.2f", math.Pow10(bd.Exponent-qd.Exponent)))
 	priceDec = priceDec.Mul(multiplier)
 
 	return TrimAmountTrailingZeros(priceDec.String()), priceDec.MustFloat64(), nil
@@ -40,8 +41,8 @@ func UAmountToAmount(asset *chain_registry.ChainRegistryAsset, amount string) (s
 		return "", fmt.Errorf("no display denom for asset")
 	}
 
-	amtInt, _ := sdk.NewIntFromString(amount)
-	decAmount := sdk.NewDecWithPrec(amtInt.Int64(), int64(displayDenomUnit.Exponent))
+	amtInt, _ := math2.NewIntFromString(amount)
+	decAmount := math2.LegacyNewDecWithPrec(amtInt.Int64(), int64(displayDenomUnit.Exponent))
 
 	return TrimAmountTrailingZeros(decAmount.String()), nil
 }
@@ -59,7 +60,7 @@ func TrimAmountTrailingZeros(amount string) string {
 	return result
 }
 
-func DecToFloat32Rounded(decimal sdk.Dec) float32 {
+func DecToFloat32Rounded(decimal math2.LegacyDec) float32 {
 	// Convert sdk.Dec to float64, round to 2 decimals, and convert to float32
 	rounded := math.Round(decimal.MustFloat64()*100) / 100
 	return float32(rounded)

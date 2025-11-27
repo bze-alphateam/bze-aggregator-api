@@ -1,10 +1,11 @@
 package interval
 
 import (
-	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"sync"
 	"time"
+
+	"cosmossdk.io/math"
+	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 )
 
 const (
@@ -21,13 +22,13 @@ type Interval struct {
 	Duration     Length
 	Start        time.Time
 	End          time.Time
-	LowestPrice  sdk.Dec //
-	OpenPrice    sdk.Dec //
-	AveragePrice sdk.Dec
-	HighestPrice sdk.Dec //
-	ClosePrice   sdk.Dec //
-	BaseVolume   sdk.Dec
-	QuoteVolume  sdk.Dec
+	LowestPrice  math.LegacyDec //
+	OpenPrice    math.LegacyDec //
+	AveragePrice math.LegacyDec
+	HighestPrice math.LegacyDec //
+	ClosePrice   math.LegacyDec //
+	BaseVolume   math.LegacyDec
+	QuoteVolume  math.LegacyDec
 
 	lowestExecutedAt  time.Time
 	highestExecutedAt time.Time
@@ -43,20 +44,20 @@ func NewInterval(start, end time.Time, duration Length) *Interval {
 		Start:        start,
 		End:          end,
 		Duration:     duration,
-		LowestPrice:  sdk.ZeroDec(),
-		OpenPrice:    sdk.ZeroDec(),
-		AveragePrice: sdk.ZeroDec(),
-		HighestPrice: sdk.ZeroDec(),
-		ClosePrice:   sdk.ZeroDec(),
-		BaseVolume:   sdk.ZeroDec(),
-		QuoteVolume:  sdk.ZeroDec(),
+		LowestPrice:  math.LegacyZeroDec(),
+		OpenPrice:    math.LegacyZeroDec(),
+		AveragePrice: math.LegacyZeroDec(),
+		HighestPrice: math.LegacyZeroDec(),
+		ClosePrice:   math.LegacyZeroDec(),
+		BaseVolume:   math.LegacyZeroDec(),
+		QuoteVolume:  math.LegacyZeroDec(),
 	}
 }
 
 func (i *Interval) AddOrder(o *entity.MarketHistory) {
 	i.mx.Lock()
 	defer i.mx.Unlock()
-	price := sdk.MustNewDecFromStr(o.Price)
+	price := math.LegacyMustNewDecFromStr(o.Price)
 
 	if i.lowestExecutedAt == (time.Time{}) || i.lowestExecutedAt.After(o.ExecutedAt) {
 		i.lowestExecutedAt = o.ExecutedAt
@@ -76,8 +77,8 @@ func (i *Interval) AddOrder(o *entity.MarketHistory) {
 		i.HighestPrice = price
 	}
 
-	orderBaseVolume := sdk.MustNewDecFromStr(o.Amount)
-	orderQuoteVolume := sdk.MustNewDecFromStr(o.QuoteAmount)
+	orderBaseVolume := math.LegacyMustNewDecFromStr(o.Amount)
+	orderQuoteVolume := math.LegacyMustNewDecFromStr(o.QuoteAmount)
 	if i.AveragePrice.IsZero() {
 		i.AveragePrice = price
 		i.BaseVolume = orderBaseVolume

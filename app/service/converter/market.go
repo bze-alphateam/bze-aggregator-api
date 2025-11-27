@@ -2,9 +2,10 @@ package converter
 
 import (
 	"fmt"
-	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"math"
+
+	math2 "cosmossdk.io/math"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
 )
 
 const (
@@ -23,9 +24,9 @@ func GetQuoteAmount(baseAmount string, price string, quoteAsset *chain_registry.
 	}
 
 	//multiply by scale -> truncate int -> divide by scale in order to keep max decimals
-	scale := sdk.NewDec(int64(math.Pow10(maxDecimals)))
-	amt := sdk.MustNewDecFromStr(baseAmount)
-	p := sdk.MustNewDecFromStr(price)
+	scale := math2.LegacyNewDec(int64(math.Pow10(maxDecimals)))
+	amt := math2.LegacyMustNewDecFromStr(baseAmount)
+	p := math2.LegacyMustNewDecFromStr(price)
 
 	total := amt.Mul(p).Mul(scale).TruncateDec().Quo(scale)
 

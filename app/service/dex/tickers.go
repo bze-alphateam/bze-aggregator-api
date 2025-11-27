@@ -1,15 +1,16 @@
 package dex
 
 import (
+	"sync"
+	"time"
+
+	"cosmossdk.io/math"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/calculator"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/sirupsen/logrus"
-	"sync"
-	"time"
 )
 
 const (
@@ -136,7 +137,7 @@ func (t *Tickers) buildTicker(market entity.MarketWithLastPrice, ticker ticker) 
 		return err
 	}
 	if buy != nil {
-		bid := sdk.MustNewDecFromStr(buy.Price)
+		bid := math.LegacyMustNewDecFromStr(buy.Price)
 		ticker.SetBid(bid.MustFloat64())
 	}
 
@@ -145,7 +146,7 @@ func (t *Tickers) buildTicker(market entity.MarketWithLastPrice, ticker ticker) 
 		return err
 	}
 	if sell != nil {
-		ask := sdk.MustNewDecFromStr(sell.Price)
+		ask := math.LegacyMustNewDecFromStr(sell.Price)
 		ticker.SetAsk(ask.MustFloat64())
 	}
 
@@ -154,26 +155,26 @@ func (t *Tickers) buildTicker(market entity.MarketWithLastPrice, ticker ticker) 
 		return err
 	}
 
-	openPrice := sdk.ZeroDec()
+	openPrice := math.LegacyZeroDec()
 	if len(intervals) > 0 {
-		op := sdk.MustNewDecFromStr(intervals[0].OpenPrice)
+		op := math.LegacyMustNewDecFromStr(intervals[0].OpenPrice)
 		openPrice = openPrice.Add(op)
 		ticker.SetOpenPrice(openPrice.MustFloat64())
 	}
 
-	high := sdk.ZeroDec()
-	low := sdk.ZeroDec()
-	bVolume := sdk.ZeroDec()
-	qVolume := sdk.ZeroDec()
+	high := math.LegacyZeroDec()
+	low := math.LegacyZeroDec()
+	bVolume := math.LegacyZeroDec()
+	qVolume := math.LegacyZeroDec()
 
 	for _, i := range intervals {
-		base := sdk.MustNewDecFromStr(i.BaseVolume)
-		quote := sdk.MustNewDecFromStr(i.QuoteVolume)
+		base := math.LegacyMustNewDecFromStr(i.BaseVolume)
+		quote := math.LegacyMustNewDecFromStr(i.QuoteVolume)
 		bVolume = bVolume.Add(base)
 		qVolume = qVolume.Add(quote)
 
-		iHigh := sdk.MustNewDecFromStr(i.HighestPrice)
-		iLow := sdk.MustNewDecFromStr(i.LowestPrice)
+		iHigh := math.LegacyMustNewDecFromStr(i.HighestPrice)
+		iLow := math.LegacyMustNewDecFromStr(i.LowestPrice)
 		if iHigh.GT(high) {
 			high = iHigh
 		}
@@ -189,9 +190,9 @@ func (t *Tickers) buildTicker(market entity.MarketWithLastPrice, ticker ticker) 
 	ticker.SetLow(low.MustFloat64())
 	ticker.SetLastPrice(0)
 
-	priceChange := sdk.ZeroDec()
+	priceChange := math.LegacyZeroDec()
 	if market.LastPrice.Valid {
-		lastPrice := sdk.MustNewDecFromStr(market.LastPrice.String)
+		lastPrice := math.LegacyMustNewDecFromStr(market.LastPrice.String)
 		ticker.SetLastPrice(lastPrice.MustFloat64())
 		priceChange = calculator.CalculatePriceChange(openPrice, lastPrice)
 	}
