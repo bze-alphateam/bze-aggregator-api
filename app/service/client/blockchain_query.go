@@ -16,7 +16,7 @@ import (
 const (
 	supplyPath        = "/cosmos/bank/v1beta1/supply"
 	communityPoolPath = "/cosmos/distribution/v1beta1/community_pool"
-	marketHistoryPath = "/bze/tradebin/v1/market_history"
+	marketHistoryPath = "/bze/tradebin/market_history"
 	latestBlockPath   = "/cosmos/base/tendermint/v1beta1/blocks/latest"
 )
 
