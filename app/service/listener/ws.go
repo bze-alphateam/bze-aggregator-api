@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
+	"github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/sirupsen/logrus"
-	types2 "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/rpc/client/http"
 	"strings"
 	"time"
 
-	tmtypes "github.com/tendermint/tendermint/types"
+	tmtypes "github.com/cometbft/cometbft/types"
 )
 
 const (
@@ -35,7 +35,7 @@ func NewTradebinListener(conn *http.HTTP, logger logrus.FieldLogger) (*TradebinL
 	}, nil
 }
 
-func (w *TradebinListener) Listen(msgChan chan<- types2.Event) error {
+func (w *TradebinListener) Listen(msgChan chan<- types.Event) error {
 	if err := w.client.Start(); err != nil {
 		return fmt.Errorf("could not start ws client: %w", err)
 	}
@@ -81,7 +81,7 @@ func (w *TradebinListener) Listen(msgChan chan<- types2.Event) error {
 				continue
 			}
 			if evt, ok := blockMsg.Data.(tmtypes.EventDataNewBlock); ok {
-				allEvents := append(evt.ResultBeginBlock.Events, evt.ResultEndBlock.Events...)
+				allEvents := evt.ResultFinalizeBlock.Events
 				for _, event := range allEvents {
 					if !strings.Contains(event.Type, tradebinStr) {
 						continue

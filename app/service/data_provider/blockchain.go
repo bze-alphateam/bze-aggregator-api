@@ -3,8 +3,8 @@ package data_provider
 import (
 	"context"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
-	"github.com/tendermint/tendermint/rpc/client/http"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
+	"github.com/cometbft/cometbft/rpc/client/http"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 )
 
 type BlockchainProvider struct {

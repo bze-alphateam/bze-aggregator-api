@@ -7,8 +7,8 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/sirupsen/logrus"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	"sync"
 	"time"
 )

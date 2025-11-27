@@ -2,8 +2,8 @@ package client
 
 import (
 	"fmt"
+	"github.com/cometbft/cometbft/rpc/client/http"
 	"github.com/joho/godotenv"
-	"github.com/tendermint/tendermint/rpc/client/http"
 )
 
 const (

@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/tendermint/tendermint/rpc/client/http"
+	"github.com/cometbft/cometbft/rpc/client/http"
 )
 
 func GetRpcClient(host string) (client *http.HTTP, err error) {

@@ -12,7 +12,7 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/query"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
-	cmtjson "github.com/tendermint/tendermint/libs/json"
+	cmtjson "github.com/cometbft/cometbft/libs/json"
 )
 
 const (
