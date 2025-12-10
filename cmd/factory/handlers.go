@@ -305,7 +305,23 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	return handlers.NewListener(logger, history, interval, order, market, liquidityPool, mProvider, locker)
+	// PostgreSQL connection for swap events
+	pgDB, err := connector.NewPostgresConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	eventRepo, err := repository.NewEventRepository(pgDB)
+	if err != nil {
+		return nil, err
+	}
+
+	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, hRepo, chainReg)
+	if err != nil {
+		return nil, err
+	}
+
+	return handlers.NewListener(logger, history, interval, order, market, liquidityPool, swapEventSync, mProvider, locker)
 }
 
 func GetLiquidityPoolSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.LiquidityPoolSync, error) {

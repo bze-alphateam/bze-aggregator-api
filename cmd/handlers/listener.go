@@ -29,14 +29,15 @@ type Listener struct {
 	o         orderStorage
 	m         marketStorage
 	lp        liquidityPoolStorage
+	se        swapEventStorage
 	mProvider marketProvider
 	locker    locker
 
 	markets map[string]types.Market
 }
 
-func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage, o orderStorage, m marketStorage, lp liquidityPoolStorage, mProvider marketProvider, locker locker) (*Listener, error) {
-	if logger == nil || h == nil || i == nil || o == nil || m == nil || lp == nil || mProvider == nil || locker == nil {
+func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage, o orderStorage, m marketStorage, lp liquidityPoolStorage, se swapEventStorage, mProvider marketProvider, locker locker) (*Listener, error) {
+	if logger == nil || h == nil || i == nil || o == nil || m == nil || lp == nil || se == nil || mProvider == nil || locker == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewListener")
 	}
 
@@ -57,6 +58,7 @@ func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage,
 		o:         o,
 		m:         m,
 		lp:        lp,
+		se:        se,
 		mProvider: mProvider,
 		locker:    locker,
 		markets:   markets,
@@ -176,6 +178,14 @@ func (l *Listener) handleMessage(event types2.Event) {
 		if err != nil {
 			eventLogger.WithError(err).Errorf("error syncing liquidity pool %s", poolId)
 		}
+	case "bze.tradebin.SwapEvent":
+		eventLogger.Info("syncing swap events")
+		processedCount, err := l.se.SyncSwapEvents(100)
+		if err != nil {
+			eventLogger.WithError(err).Error("error syncing swap events")
+		} else if processedCount > 0 {
+			eventLogger.Infof("processed %d swap events", processedCount)
+		}
 	}
 
 	eventLogger.Debug("message handled")
@@ -226,6 +236,14 @@ func (l *Listener) initialSync() (err error) {
 	err = l.lp.SyncLiquidityPools()
 	if err != nil {
 		logger.WithError(err).Error("error syncing liquidity pools")
+	}
+
+	logger.Info("syncing swap events")
+	processedCount, err := l.se.SyncSwapEvents(1000)
+	if err != nil {
+		logger.WithError(err).Error("error syncing swap events")
+	} else {
+		logger.Infof("processed %d swap events", processedCount)
 	}
 
 	l.markets, err = getMarketsMap(l.mProvider)
