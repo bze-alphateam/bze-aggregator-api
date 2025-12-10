@@ -155,12 +155,6 @@ func (l *Listener) handleMessage(event types2.Event) {
 			eventLogger.WithError(err).Error("error syncing liquidity pools")
 		}
 
-		//when a new pool is created we should also sync markets as the pool creates a market
-		err = l.m.SyncMarkets()
-		if err != nil {
-			eventLogger.WithError(err).Error("error syncing markets")
-		}
-
 		//refresh our markets list that we keep in memory
 		l.lockMarkets()
 		defer l.unlockMarkets()
