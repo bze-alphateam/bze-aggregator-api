@@ -275,5 +275,60 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	return handlers.NewListener(logger, history, interval, order, market, mProvider, locker)
+	liquidityDataRepo, err := repository.NewMarketLiquidityDataRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	lpProvider, err := data_provider.NewLiquidityPoolProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	liquidityPool, err := sync.NewLiquidityPoolSync(logger, mRepo, liquidityDataRepo, lpProvider)
+	if err != nil {
+		return nil, err
+	}
+
+	return handlers.NewListener(logger, history, interval, order, market, liquidityPool, mProvider, locker)
+}
+
+func GetLiquidityPoolSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.LiquidityPoolSync, error) {
+	locker := lock.GetInMemoryLocker()
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	mRepo, err := repository.NewMarketRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	liquidityDataRepo, err := repository.NewMarketLiquidityDataRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	grpc, err := client.NewGrpcClient(cfg, locker, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	lpProvider, err := data_provider.NewLiquidityPoolProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	storage, err := sync.NewLiquidityPoolSync(logger, mRepo, liquidityDataRepo, lpProvider)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := handlers.NewLiquidityPoolSyncHandler(logger, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
 }

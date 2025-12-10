@@ -28,14 +28,15 @@ type Listener struct {
 	i         intervalStorage
 	o         orderStorage
 	m         marketStorage
+	lp        liquidityPoolStorage
 	mProvider marketProvider
 	locker    locker
 
 	markets map[string]types.Market
 }
 
-func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage, o orderStorage, m marketStorage, mProvider marketProvider, locker locker) (*Listener, error) {
-	if logger == nil || h == nil || i == nil || o == nil || m == nil || mProvider == nil || locker == nil {
+func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage, o orderStorage, m marketStorage, lp liquidityPoolStorage, mProvider marketProvider, locker locker) (*Listener, error) {
+	if logger == nil || h == nil || i == nil || o == nil || m == nil || lp == nil || mProvider == nil || locker == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewListener")
 	}
 
@@ -55,6 +56,7 @@ func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage,
 		i:         i,
 		o:         o,
 		m:         m,
+		lp:        lp,
 		mProvider: mProvider,
 		locker:    locker,
 		markets:   markets,
@@ -146,6 +148,40 @@ func (l *Listener) handleMessage(event types2.Event) {
 		if err != nil {
 			eventLogger.WithError(err).Error("error syncing orders")
 		}
+	case "bze.tradebin.PoolCreatedEvent":
+		eventLogger.Info("syncing liquidity pools after pool creation")
+		err := l.lp.SyncLiquidityPools()
+		if err != nil {
+			eventLogger.WithError(err).Error("error syncing liquidity pools")
+		}
+
+		//when a new pool is created we should also sync markets as the pool creates a market
+		err = l.m.SyncMarkets()
+		if err != nil {
+			eventLogger.WithError(err).Error("error syncing markets")
+		}
+
+		//refresh our markets list that we keep in memory
+		l.lockMarkets()
+		defer l.unlockMarkets()
+		l.markets, err = getMarketsMap(l.mProvider)
+		if err != nil {
+			eventLogger.WithError(err).Error("error when trying to resync all markets")
+		}
+	case "bze.tradebin.LiquidityAddedEvent":
+		fallthrough
+	case "bze.tradebin.LiquidityRemovedEvent":
+		poolId := l.getEventPoolId(event)
+		if poolId == "" {
+			eventLogger.Error("could not find pool_id for this event")
+			break
+		}
+
+		eventLogger.Infof("syncing liquidity pool %s", poolId)
+		err := l.lp.SyncLiquidityPoolById(poolId)
+		if err != nil {
+			eventLogger.WithError(err).Errorf("error syncing liquidity pool %s", poolId)
+		}
 	}
 
 	eventLogger.Debug("message handled")
@@ -175,12 +211,28 @@ func (l *Listener) getEventMarket(event types2.Event) *types.Market {
 	return nil
 }
 
+func (l *Listener) getEventPoolId(event types2.Event) string {
+	for _, attr := range event.Attributes {
+		if string(attr.Key) == "pool_id" {
+			return strings.Trim(string(attr.Value), "\"")
+		}
+	}
+
+	return ""
+}
+
 func (l *Listener) initialSync() (err error) {
 	logger := l.logger.WithField("process", "initialSync")
 	l.lockMarkets()
 	defer l.unlockMarkets()
 	logger.Info("syncing markets")
 	err = l.m.SyncMarkets()
+
+	logger.Info("syncing liquidity pools")
+	err = l.lp.SyncLiquidityPools()
+	if err != nil {
+		logger.WithError(err).Error("error syncing liquidity pools")
+	}
 
 	l.markets, err = getMarketsMap(l.mProvider)
 	if err != nil {

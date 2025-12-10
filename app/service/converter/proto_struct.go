@@ -2,9 +2,10 @@ package converter
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
-	"time"
 )
 
 func NewMarketEntity(source *tradebinTypes.Market) *entity.Market {
@@ -34,4 +35,24 @@ func NewMarketHistoryEntity(source *tradebinTypes.HistoryOrder) (*entity.MarketH
 		Maker:      source.GetMaker(),
 		Taker:      source.GetTaker(),
 	}, nil
+}
+
+func NewMarketLiquidityDataEntity(source *tradebinTypes.LiquidityPool) *entity.MarketLiquidityData {
+	return &entity.MarketLiquidityData{
+		MarketID:     source.Id,
+		LpDenom:      source.GetLpDenom(),
+		Fee:          source.Fee.String(),
+		ReserveBase:  source.ReserveBase.String(),
+		ReserveQuote: source.ReserveQuote.String(),
+	}
+}
+
+func NewMarketEntityFromLiquidityPool(source *tradebinTypes.LiquidityPool) *entity.Market {
+	return &entity.Market{
+		MarketID:  source.Id,
+		Base:      source.GetBase(),
+		Quote:     source.GetQuote(),
+		CreatedBy: source.GetCreator(),
+		CreatedAt: time.Now(),
+	}
 }
