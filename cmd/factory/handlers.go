@@ -332,3 +332,22 @@ func GetLiquidityPoolSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogge
 
 	return handler, nil
 }
+
+func GetCleanupHandler(logger logrus.FieldLogger) (*handlers.Cleanup, error) {
+	db, err := connector.NewPostgresConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	cleanupRepo, err := repository.NewCleanupRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := handlers.NewCleanupHandler(logger, cleanupRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}
