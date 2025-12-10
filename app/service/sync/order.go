@@ -75,7 +75,7 @@ func (o *Order) syncList(source []types.AggregatedOrder, market *types.Market) e
 		return nil
 	}
 
-	conv, err := converter.NewTypesConverter(o.assetProvider, market)
+	conv, err := converter.NewTypesConverter(o.assetProvider, market.GetBase(), market.GetQuote())
 	if err != nil {
 		return err
 	}

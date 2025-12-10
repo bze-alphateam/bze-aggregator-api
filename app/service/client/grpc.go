@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -118,6 +120,17 @@ func (c *GrpcClient) GetTradebinQueryClient() (tradebinTypes.QueryClient, error)
 	}
 
 	queryClient := tradebinTypes.NewQueryClient(grpcConn)
+
+	return queryClient, nil
+}
+
+func (c *GrpcClient) GetBankQueryClient() (banktypes.QueryClient, error) {
+	grpcConn, err := c.getConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	queryClient := banktypes.NewQueryClient(grpcConn)
 
 	return queryClient, nil
 }

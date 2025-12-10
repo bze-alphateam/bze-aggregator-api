@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
 )
@@ -54,5 +55,14 @@ func NewMarketEntityFromLiquidityPool(source *tradebinTypes.LiquidityPool) *enti
 		Quote:     source.GetQuote(),
 		CreatedBy: source.GetCreator(),
 		CreatedAt: time.Now(),
+	}
+}
+
+func NewMarketHistoryFromSwap(source *dto.SwapEventData) *entity.MarketHistory {
+	return &entity.MarketHistory{
+		MarketID:   source.PoolID,
+		ExecutedAt: source.ExecutedAt,
+		Maker:      "",
+		Taker:      source.Creator,
 	}
 }

@@ -80,7 +80,12 @@ func GetMarketOrderSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger)
 		return nil, err
 	}
 
-	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient)
+	meta, err := data_provider.NewDenomMetadataProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +135,12 @@ func GetMarketHistorySyncHandler(cfg *config.AppConfig, logger logrus.FieldLogge
 		return nil, err
 	}
 
-	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient)
+	meta, err := data_provider.NewDenomMetadataProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +260,12 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient)
+	meta, err := data_provider.NewDenomMetadataProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -345,6 +360,65 @@ func GetCleanupHandler(logger logrus.FieldLogger) (*handlers.Cleanup, error) {
 	}
 
 	handler, err := handlers.NewCleanupHandler(logger, cleanupRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}
+
+func GetSyncEventsHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.SyncEvents, error) {
+	locker := lock.GetInMemoryLocker()
+
+	// PostgreSQL connection for reading events
+	pgDB, err := connector.NewPostgresConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	eventRepo, err := repository.NewEventRepository(pgDB)
+	if err != nil {
+		return nil, err
+	}
+
+	// MySQL connection for writing market history
+	mysqlDB, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	historyRepo, err := repository.NewMarketHistoryRepository(mysqlDB)
+	if err != nil {
+		return nil, err
+	}
+
+	regClient, err := client.NewChainRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	grpc, err := client.NewGrpcClient(cfg, locker, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	meta, err := data_provider.NewDenomMetadataProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient, meta)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create sync service
+	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, historyRepo, chainReg)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := handlers.NewSyncEventsHandler(logger, swapEventSync)
 	if err != nil {
 		return nil, err
 	}

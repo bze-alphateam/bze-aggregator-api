@@ -1,13 +1,14 @@
 package sync
 
 import (
+	"time"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 const (
@@ -66,7 +67,7 @@ func (h *History) SyncHistory(market *types.Market, batchSize uint64) error {
 
 	l := h.logger.WithField("market", marketId).WithField("process", "SyncHistory")
 	l.Info("preparing to sync history")
-	conv, err := converter.NewTypesConverter(h.assetProvider, market)
+	conv, err := converter.NewTypesConverter(h.assetProvider, market.GetBase(), market.GetQuote())
 	if err != nil {
 		return err
 	}

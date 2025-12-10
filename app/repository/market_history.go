@@ -25,6 +25,23 @@ func NewMarketHistoryRepository(db internal.Database) (*MarketHistoryRepository,
 	return &MarketHistoryRepository{db: db}, nil
 }
 
+func (r *MarketHistoryRepository) SaveMarketHistory(items []*entity.MarketHistory) error {
+	query := `
+	INSERT INTO market_history (
+		market_id, order_type, amount, price, executed_at, maker, taker, i_quote_amount, i_created_at
+	) VALUES (
+		:market_id, :order_type, :amount, :price, :executed_at, :maker, :taker, :i_quote_amount, NOW()
+	);
+`
+
+	_, err := r.db.NamedExec(query, items)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *MarketHistoryRepository) GetLastHistoryOrder(marketId string) (*entity.MarketHistory, error) {
 	ent := entity.MarketHistory{}
 	query := `SELECT * FROM market_history WHERE market_id = ? ORDER BY executed_at DESC LIMIT 1`

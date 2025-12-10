@@ -11,6 +11,7 @@ Usage:
 ./bze-agg sync orders
 ./bze-agg sync history
 ./bze-agg sync liquidity
+./bze-agg sync events
 ./bze-agg sync listener
 `,
 	Run: func(cmd *cobra.Command, args []string) {

@@ -2,6 +2,9 @@ package converter
 
 import (
 	"fmt"
+
+	"cosmossdk.io/math"
+	"github.com/bze-alphateam/bze-aggregator-api/app/dto"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze/x/tradebin/types"
@@ -16,8 +19,8 @@ type TypesConverter struct {
 	quote *chain_registry.ChainRegistryAsset
 }
 
-func NewTypesConverter(provider assetProvider, market *types.Market) (*TypesConverter, error) {
-	bAsset, err := provider.GetAssetDetails(market.GetBase())
+func NewTypesConverter(provider assetProvider, base, quote string) (*TypesConverter, error) {
+	bAsset, err := provider.GetAssetDetails(base)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +29,7 @@ func NewTypesConverter(provider assetProvider, market *types.Market) (*TypesConv
 		return nil, fmt.Errorf("base asset not found")
 	}
 
-	qAsset, err := provider.GetAssetDetails(market.GetQuote())
+	qAsset, err := provider.GetAssetDetails(quote)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +42,45 @@ func NewTypesConverter(provider assetProvider, market *types.Market) (*TypesConv
 		base:  bAsset,
 		quote: qAsset,
 	}, nil
+}
+
+func (tc *TypesConverter) SwapDataToHistoryEntity(source dto.SwapEventData) (*entity.MarketHistory, error) {
+	ent := NewMarketHistoryFromSwap(&source)
+	base := source.GetBase()
+	quote := source.GetQuote()
+
+	// Determine order type based on input denom
+	// If input is base -> sell, if input is quote -> buy
+	if source.Input.Denom == base.Denom {
+		ent.OrderType = "sell"
+	} else {
+		// Buying base with quote
+		ent.OrderType = "buy"
+	}
+
+	var err error
+	ent.Amount, err = UAmountToAmount(tc.base, base.Amount.String())
+	if err != nil {
+		return nil, err
+	}
+
+	ent.QuoteAmount, err = UAmountToAmount(tc.quote, quote.Amount.String())
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to decimal for price calculation
+	baseDec := math.LegacyNewDecFromInt(base.Amount)
+	quoteDec := math.LegacyNewDecFromInt(quote.Amount)
+
+	if baseDec.IsZero() {
+		return nil, fmt.Errorf("base amount is zero")
+	}
+
+	priceDec := quoteDec.Quo(baseDec)
+	ent.Price = priceDec.String()
+
+	return ent, nil
 }
 
 func (tc *TypesConverter) HistoryOrderToHistoryEntity(source *types.HistoryOrder) (*entity.MarketHistory, error) {

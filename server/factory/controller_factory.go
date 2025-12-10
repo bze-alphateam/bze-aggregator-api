@@ -10,6 +10,7 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/data_provider"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/dex"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/health"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/lock"
 	"github.com/bze-alphateam/bze-aggregator-api/connector"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	"github.com/sirupsen/logrus"
@@ -37,6 +38,12 @@ func (c *ControllerFactory) GetSupplyController() (*controller.SupplyController,
 		return nil, fmt.Errorf("could not instantiate in memory cache")
 	}
 
+	locker := lock.GetInMemoryLocker()
+	grpc, err := client.NewGrpcClient(c.config, locker, c.logger)
+	if err != nil {
+		return nil, err
+	}
+
 	dp, err := client.NewBlockchainQueryClient(c.config.Blockchain.RestHost)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate blockchain query client: %w", err)
@@ -47,7 +54,12 @@ func (c *ControllerFactory) GetSupplyController() (*controller.SupplyController,
 		return nil, err
 	}
 
-	chainReg, err := data_provider.NewChainRegistry(c.logger, cache, regClient)
+	meta, err := data_provider.NewDenomMetadataProvider(grpc, c.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(c.logger, cache, regClient, meta)
 	if err != nil {
 		return nil, err
 	}
