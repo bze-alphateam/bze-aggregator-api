@@ -42,6 +42,10 @@ func (lp *LiquidityPool) SyncLiquidityPools() error {
 	if err != nil {
 		return err
 	}
+	if len(list) == 0 {
+		lp.logger.Info("no liquidity pools found")
+		return nil
+	}
 
 	lp.logger.Infof("saving %d liquidity pools", len(list))
 
