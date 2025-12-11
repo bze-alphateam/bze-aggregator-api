@@ -6,7 +6,7 @@ import (
 )
 
 type cleanupStorage interface {
-	DeleteOldBlocks(days int) (int64, error)
+	DeleteOldBlocks(days int, deleteAll bool) (int64, error)
 }
 
 type Cleanup struct {
@@ -22,10 +22,14 @@ func NewCleanupHandler(logger logrus.FieldLogger, storage cleanupStorage) (*Clea
 	return &Cleanup{logger: logger, storage: storage}, nil
 }
 
-func (c *Cleanup) CleanupOldBlocks(days int) error {
-	c.logger.Infof("cleaning up blocks older than %d days", days)
+func (c *Cleanup) CleanupOldBlocks(days int, deleteAll bool) error {
+	if deleteAll {
+		c.logger.Infof("cleaning up ALL blocks older than %d days", days)
+	} else {
+		c.logger.Infof("cleaning up blocks older than %d days (excluding blocks with 'bze.' events)", days)
+	}
 
-	deletedCount, err := c.storage.DeleteOldBlocks(days)
+	deletedCount, err := c.storage.DeleteOldBlocks(days, deleteAll)
 	if err != nil {
 		c.logger.WithError(err).Error("failed to cleanup old blocks")
 		return err
