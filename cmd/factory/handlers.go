@@ -316,7 +316,17 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, hRepo, chainReg, locker)
+	rpcClient, err := client.GetRpcClient(cfg.Blockchain.RpcHost)
+	if err != nil {
+		return nil, err
+	}
+
+	bp, err := data_provider.NewBlockchainProvider(rpcClient, service.NewInMemoryCache(), logger)
+	if err != nil {
+		return nil, err
+	}
+
+	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, hRepo, chainReg, locker, bp)
 	if err != nil {
 		return nil, err
 	}
@@ -428,8 +438,18 @@ func GetSyncEventsHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*ha
 		return nil, err
 	}
 
+	rpcClient, err := client.GetRpcClient(cfg.Blockchain.RpcHost)
+	if err != nil {
+		return nil, err
+	}
+
+	bp, err := data_provider.NewBlockchainProvider(rpcClient, service.NewInMemoryCache(), logger)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create sync service
-	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, historyRepo, chainReg, locker)
+	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, historyRepo, chainReg, locker, bp)
 	if err != nil {
 		return nil, err
 	}

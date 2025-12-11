@@ -78,7 +78,10 @@ func (tc *TypesConverter) SwapDataToHistoryEntity(source dto.SwapEventData) (*en
 	}
 
 	priceDec := quoteDec.Quo(baseDec)
-	ent.Price = priceDec.String()
+	ent.Price, _, err = UPriceToPrice(tc.base, tc.quote, priceDec.String())
+	if err != nil {
+		return nil, err
+	}
 
 	return ent, nil
 }

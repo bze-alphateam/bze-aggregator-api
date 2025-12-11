@@ -2,12 +2,18 @@ package sync
 
 import (
 	"fmt"
+	"slices"
+	"time"
 
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/sirupsen/logrus"
 )
+
+type blockTimeProvider interface {
+	GetBlockTime(height int64) (time.Time, error)
+}
 
 type eventRepository interface {
 	GetUnprocessedSwapEvents(limit int) ([]entity.Event, error)
@@ -20,24 +26,33 @@ type marketHistoryRepository interface {
 }
 
 type SwapEventSync struct {
-	eventRepo     eventRepository
-	historyRepo   marketHistoryRepository
-	logger        logrus.FieldLogger
-	assetProvider assetProvider
-	locker        locker
+	eventRepo         eventRepository
+	historyRepo       marketHistoryRepository
+	logger            logrus.FieldLogger
+	assetProvider     assetProvider
+	locker            locker
+	blockTimeProvider blockTimeProvider
 }
 
-func NewSwapEventSync(logger logrus.FieldLogger, eventRepo eventRepository, historyRepo marketHistoryRepository, provider assetProvider, l locker) (*SwapEventSync, error) {
-	if logger == nil || eventRepo == nil || historyRepo == nil || provider == nil || l == nil {
+func NewSwapEventSync(
+	logger logrus.FieldLogger,
+	eventRepo eventRepository,
+	historyRepo marketHistoryRepository,
+	provider assetProvider,
+	l locker,
+	blockTimeProvider blockTimeProvider,
+) (*SwapEventSync, error) {
+	if logger == nil || eventRepo == nil || historyRepo == nil || provider == nil || l == nil || blockTimeProvider == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewSwapEventSync")
 	}
 
 	return &SwapEventSync{
-		eventRepo:     eventRepo,
-		historyRepo:   historyRepo,
-		logger:        logger.WithField("service", "SwapEventSync"),
-		assetProvider: provider,
-		locker:        l,
+		eventRepo:         eventRepo,
+		historyRepo:       historyRepo,
+		logger:            logger.WithField("service", "SwapEventSync"),
+		assetProvider:     provider,
+		locker:            l,
+		blockTimeProvider: blockTimeProvider,
 	}, nil
 }
 
@@ -61,6 +76,10 @@ func (s *SwapEventSync) SyncSwapEvents(batchSize int) (pools []string, err error
 		poolId, err := s.processEvent(&event)
 		if err != nil {
 			s.logger.WithError(err).Errorf("error processing event %d, skipping", event.RowID)
+			continue
+		}
+
+		if slices.Contains(pools, poolId) {
 			continue
 		}
 
@@ -94,6 +113,11 @@ func (s *SwapEventSync) processEvent(event *entity.Event) (poolId string, err er
 	historyEntry, err := conv.SwapDataToHistoryEntity(*swapData)
 	if err != nil {
 		return poolId, fmt.Errorf("error creating market history entry: %w", err)
+	}
+
+	historyEntry.ExecutedAt, err = s.blockTimeProvider.GetBlockTime(event.BlockID)
+	if err != nil {
+		return poolId, fmt.Errorf("error getting block time: %w", err)
 	}
 
 	// Save market history

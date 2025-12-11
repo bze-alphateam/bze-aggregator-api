@@ -136,7 +136,7 @@ func (c *ControllerFactory) GetHealthController() (*controller.HealthCheckContro
 				return nil, err
 			}
 
-			newCl, clErr := data_provider.NewBlockchainProvider(rpc)
+			newCl, clErr := data_provider.NewBlockchainProvider(rpc, appService.NewInMemoryCache(), c.logger)
 			if clErr != nil {
 				return nil, fmt.Errorf("could not instantiate blockchain query client: %w", clErr)
 			}
