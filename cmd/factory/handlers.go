@@ -300,7 +300,7 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	liquidityPool, err := sync.NewLiquidityPoolSync(logger, mRepo, liquidityDataRepo, lpProvider)
+	liquidityPool, err := sync.NewLiquidityPoolSync(logger, mRepo, liquidityDataRepo, lpProvider, locker)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +316,7 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, hRepo, chainReg)
+	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, hRepo, chainReg, locker)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +351,7 @@ func GetLiquidityPoolSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogge
 		return nil, err
 	}
 
-	storage, err := sync.NewLiquidityPoolSync(logger, mRepo, liquidityDataRepo, lpProvider)
+	storage, err := sync.NewLiquidityPoolSync(logger, mRepo, liquidityDataRepo, lpProvider, locker)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +429,7 @@ func GetSyncEventsHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*ha
 	}
 
 	// Create sync service
-	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, historyRepo, chainReg)
+	swapEventSync, err := sync.NewSwapEventSync(logger, eventRepo, historyRepo, chainReg, locker)
 	if err != nil {
 		return nil, err
 	}

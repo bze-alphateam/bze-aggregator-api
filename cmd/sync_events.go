@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/bze-alphateam/bze-aggregator-api/cmd/factory"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
@@ -26,6 +28,9 @@ Usage:
 		batchSize, err := cmd.Flags().GetInt(flagBatchSize)
 		if err != nil {
 			return err
+		}
+		if batchSize <= 0 || batchSize > 10000 {
+			return fmt.Errorf("batch-size must be a positive integer between 1 and 10000")
 		}
 
 		cfg, err := config.NewAppConfig()

@@ -24,10 +24,11 @@ type SwapEventSync struct {
 	historyRepo   marketHistoryRepository
 	logger        logrus.FieldLogger
 	assetProvider assetProvider
+	locker        locker
 }
 
-func NewSwapEventSync(logger logrus.FieldLogger, eventRepo eventRepository, historyRepo marketHistoryRepository, provider assetProvider) (*SwapEventSync, error) {
-	if logger == nil || eventRepo == nil || historyRepo == nil || provider == nil {
+func NewSwapEventSync(logger logrus.FieldLogger, eventRepo eventRepository, historyRepo marketHistoryRepository, provider assetProvider, l locker) (*SwapEventSync, error) {
+	if logger == nil || eventRepo == nil || historyRepo == nil || provider == nil || l == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewSwapEventSync")
 	}
 
@@ -36,73 +37,77 @@ func NewSwapEventSync(logger logrus.FieldLogger, eventRepo eventRepository, hist
 		historyRepo:   historyRepo,
 		logger:        logger.WithField("service", "SwapEventSync"),
 		assetProvider: provider,
+		locker:        l,
 	}, nil
 }
 
-func (s *SwapEventSync) SyncSwapEvents(batchSize int) (int, error) {
+func (s *SwapEventSync) SyncSwapEvents(batchSize int) (pools []string, err error) {
+	s.locker.Lock(getSwapEventsLockKey())
+	defer s.locker.Unlock(getSwapEventsLockKey())
+
 	events, err := s.eventRepo.GetUnprocessedSwapEvents(batchSize)
 	if err != nil {
-		return 0, err
+		return pools, err
 	}
 
 	if len(events) == 0 {
 		s.logger.Info("no unprocessed swap events found")
-		return 0, nil
+		return pools, nil
 	}
 
 	s.logger.Infof("processing %d swap events", len(events))
 
-	processedCount := 0
 	for _, event := range events {
-		err := s.processEvent(&event)
+		poolId, err := s.processEvent(&event)
 		if err != nil {
 			s.logger.WithError(err).Errorf("error processing event %d, skipping", event.RowID)
 			continue
 		}
 
-		processedCount++
+		pools = append(pools, poolId)
 	}
 
-	s.logger.Infof("successfully processed %d out of %d swap events", processedCount, len(events))
-	return processedCount, nil
+	s.logger.Infof("successfully processed %d swap events for %d pools", len(events), len(pools))
+	return pools, nil
 }
 
-func (s *SwapEventSync) processEvent(event *entity.Event) error {
+func (s *SwapEventSync) processEvent(event *entity.Event) (poolId string, err error) {
 	// Get event attributes
 	attributes, err := s.eventRepo.GetEventAttributes(event.RowID)
 	if err != nil {
-		return err
+		return poolId, err
 	}
 
 	// Parse swap event data
 	swapData, err := converter.ConvertEventToSwapData(event, attributes)
 	if err != nil {
-		return fmt.Errorf("error parsing swap event data: %w", err)
+		return poolId, fmt.Errorf("error parsing swap event data: %w", err)
 	}
+	poolId = swapData.PoolID
 
 	conv, err := converter.NewTypesConverter(s.assetProvider, swapData.GetBase().Denom, swapData.GetQuote().Denom)
 	if err != nil {
-		return fmt.Errorf("error creating types converter: %w", err)
+		return poolId, fmt.Errorf("error creating types converter: %w", err)
 	}
 
 	// Create market history entry
 	historyEntry, err := conv.SwapDataToHistoryEntity(*swapData)
 	if err != nil {
-		return fmt.Errorf("error creating market history entry: %w", err)
+		return poolId, fmt.Errorf("error creating market history entry: %w", err)
 	}
 
 	// Save market history
 	err = s.historyRepo.SaveMarketHistory([]*entity.MarketHistory{historyEntry})
 	if err != nil {
-		return fmt.Errorf("error saving market history: %w", err)
+		return poolId, fmt.Errorf("error saving market history: %w", err)
 	}
 
 	// Mark event as processed
 	err = s.eventRepo.MarkEventAsProcessed(event.RowID)
 	if err != nil {
-		return fmt.Errorf("error marking event as processed: %w", err)
+		return poolId, fmt.Errorf("error marking event as processed: %w", err)
 	}
 
 	s.logger.Infof("processed swap event %d for pool %s", event.RowID, swapData.PoolID)
-	return nil
+	return poolId, nil
 }

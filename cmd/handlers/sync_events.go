@@ -6,7 +6,7 @@ import (
 )
 
 type swapEventStorage interface {
-	SyncSwapEvents(batchSize int) (int, error)
+	SyncSwapEvents(batchSize int) (pools []string, err error)
 }
 
 type SyncEvents struct {
@@ -25,16 +25,17 @@ func NewSyncEventsHandler(logger logrus.FieldLogger, storage swapEventStorage) (
 func (s *SyncEvents) SyncSwapEvents(batchSize int) error {
 	s.logger.Infof("syncing swap events with batch size %d", batchSize)
 
-	processedCount, err := s.storage.SyncSwapEvents(batchSize)
+	pools, err := s.storage.SyncSwapEvents(batchSize)
 	if err != nil {
 		s.logger.WithError(err).Error("failed to sync swap events")
 		return err
 	}
 
+	processedCount := len(pools)
 	if processedCount == 0 {
 		s.logger.Info("no swap events to process")
 	} else {
-		s.logger.Infof("successfully synced %d swap events", processedCount)
+		s.logger.Infof("successfully synced swap events for %d pools", processedCount)
 	}
 
 	return nil

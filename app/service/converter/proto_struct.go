@@ -50,7 +50,7 @@ func NewMarketLiquidityDataEntity(source *tradebinTypes.LiquidityPool) *entity.M
 
 func NewMarketEntityFromLiquidityPool(source *tradebinTypes.LiquidityPool) *entity.Market {
 	return &entity.Market{
-		MarketID:  source.Id,
+		MarketID:  source.GetId(),
 		Base:      source.GetBase(),
 		Quote:     source.GetQuote(),
 		CreatedBy: source.GetCreator(),

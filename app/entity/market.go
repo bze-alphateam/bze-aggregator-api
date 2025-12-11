@@ -19,3 +19,18 @@ type MarketWithLastPrice struct {
 
 	LastPrice sql.NullString `db:"last_price"`
 }
+
+type MarketsMap map[string]Market
+
+func (m MarketsMap) Get(marketId string) *Market {
+	if m == nil {
+		return nil
+	}
+
+	market, ok := m[marketId]
+	if !ok {
+		return nil
+	}
+
+	return &market
+}

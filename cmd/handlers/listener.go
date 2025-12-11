@@ -180,11 +180,18 @@ func (l *Listener) handleMessage(event types2.Event) {
 		}
 	case "bze.tradebin.SwapEvent":
 		eventLogger.Info("syncing swap events")
-		processedCount, err := l.se.SyncSwapEvents(100)
+		pools, err := l.se.SyncSwapEvents(500)
 		if err != nil {
 			eventLogger.WithError(err).Error("error syncing swap events")
-		} else if processedCount > 0 {
-			eventLogger.Infof("processed %d swap events", processedCount)
+		}
+
+		eventLogger.WithField("pools", pools).Infof("processed swap events for %d pools", len(pools))
+		for _, poolId := range pools {
+			eventLogger.Infof("syncing liquidity pool %s", poolId)
+			err := l.lp.SyncLiquidityPoolById(poolId)
+			if err != nil {
+				eventLogger.WithError(err).Errorf("error syncing liquidity pool %s", poolId)
+			}
 		}
 	}
 
@@ -231,6 +238,9 @@ func (l *Listener) initialSync() (err error) {
 	defer l.unlockMarkets()
 	logger.Info("syncing markets")
 	err = l.m.SyncMarkets()
+	if err != nil {
+		logger.WithError(err).Error("error syncing markets")
+	}
 
 	logger.Info("syncing liquidity pools")
 	err = l.lp.SyncLiquidityPools()
@@ -239,11 +249,11 @@ func (l *Listener) initialSync() (err error) {
 	}
 
 	logger.Info("syncing swap events")
-	processedCount, err := l.se.SyncSwapEvents(1000)
+	pools, err := l.se.SyncSwapEvents(1000)
 	if err != nil {
 		logger.WithError(err).Error("error syncing swap events")
 	} else {
-		logger.Infof("processed %d swap events", processedCount)
+		logger.Infof("processed swap events for %d pools", len(pools))
 	}
 
 	l.markets, err = getMarketsMap(l.mProvider)
