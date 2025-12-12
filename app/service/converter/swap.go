@@ -50,3 +50,13 @@ func ConvertEventToSwapData(event *entity.Event, attributes []entity.EventAttrib
 
 	return data, nil
 }
+
+func PoolIdToDenoms(poolId string) (base, quote string, err error) {
+	// pool id format is <base_denom>_<quote_denom>
+	parts := strings.Split(poolId, "_")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid pool id format")
+	}
+
+	return parts[0], parts[1], nil
+}

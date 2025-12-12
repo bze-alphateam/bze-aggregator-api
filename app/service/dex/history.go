@@ -6,6 +6,7 @@ import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
@@ -92,8 +93,15 @@ func (h *HistoryService) GetAddressSwapHistory(address string) ([]response.Histo
 
 	var result []response.HistoryTrade
 	for _, order := range hist {
+		base, denom, err := converter.PoolIdToDenoms(order.MarketID)
+		if err != nil {
+			h.logger.WithError(err).Error("error converting pool id to denoms")
+			continue
+		}
+
 		tr := response.HistoryTrade{
 			OrderId:     order.ID,
+			PoolId:      order.MarketID,
 			Price:       order.Price,
 			BaseVolume:  order.Amount,
 			QuoteVolume: order.QuoteAmount,
@@ -101,6 +109,8 @@ func (h *HistoryService) GetAddressSwapHistory(address string) ([]response.Histo
 			OrderType:   order.OrderType,
 			Maker:       order.Maker,
 			Taker:       order.Taker,
+			Base:        base,
+			Quote:       denom,
 		}
 
 		result = append(result, tr)
