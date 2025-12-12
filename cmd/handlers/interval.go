@@ -7,7 +7,7 @@ import (
 )
 
 type intervalStorage interface {
-	SyncIntervals(market *types.Market) error
+	SyncIntervals(marketId string) error
 }
 
 type MarketIntervalSync struct {
@@ -37,5 +37,5 @@ func (m *MarketIntervalSync) SyncAll() {
 }
 
 func (m *MarketIntervalSync) syncInterval(market *types.Market) error {
-	return m.storage.SyncIntervals(market)
+	return m.storage.SyncIntervals(types.CreateMarketId(market.GetBase(), market.GetQuote()))
 }

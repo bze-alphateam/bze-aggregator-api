@@ -21,7 +21,7 @@ func NewEventRepository(db internal.Database) (*EventRepository, error) {
 
 func (r *EventRepository) GetUnprocessedSwapEvents(limit int) ([]entity.Event, error) {
 	query := `
-		SELECT e.rowid, e.block_id, e.tx_id, e.type, e.status, b.created_at
+		SELECT e.rowid, e.block_id, b.height, e.tx_id, e.type, e.status, b.created_at
 		FROM events e
 		JOIN blocks b ON e.block_id = b.rowid
 		WHERE e.type = 'bze.tradebin.SwapEvent' AND e.status = 0

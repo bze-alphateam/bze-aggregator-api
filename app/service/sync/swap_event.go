@@ -115,7 +115,7 @@ func (s *SwapEventSync) processEvent(event *entity.Event) (poolId string, err er
 		return poolId, fmt.Errorf("error creating market history entry: %w", err)
 	}
 
-	historyEntry.ExecutedAt, err = s.blockTimeProvider.GetBlockTime(event.BlockID)
+	historyEntry.ExecutedAt, err = s.blockTimeProvider.GetBlockTime(event.BlockHeight)
 	if err != nil {
 		return poolId, fmt.Errorf("error getting block time: %w", err)
 	}

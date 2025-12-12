@@ -331,7 +331,12 @@ func GetSyncListener(cfg *config.AppConfig, logger logrus.FieldLogger) (*handler
 		return nil, err
 	}
 
-	return handlers.NewListener(logger, history, interval, order, market, liquidityPool, swapEventSync, mProvider, locker)
+	lpRepo, err := repository.NewMarketLiquidityDataRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return handlers.NewListener(logger, history, interval, order, market, liquidityPool, swapEventSync, mProvider, locker, lpRepo)
 }
 
 func GetLiquidityPoolSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*handlers.LiquidityPoolSync, error) {

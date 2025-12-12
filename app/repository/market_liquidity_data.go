@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"database/sql"
+	"errors"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 )
@@ -35,4 +38,19 @@ func (r *MarketLiquidityDataRepository) SaveOrUpdate(items []*entity.MarketLiqui
 	}
 
 	return nil
+}
+
+func (r *MarketLiquidityDataRepository) GetAllLiquidityPoolsIds() ([]string, error) {
+	query := `SELECT DISTINCT market_id FROM market_liquidity_data;`
+	var results []string
+	err := r.db.Select(&results, query)
+	if err == nil {
+		return results, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return nil, err
 }

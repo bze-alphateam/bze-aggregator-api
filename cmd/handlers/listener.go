@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"strings"
+	"time"
 
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
@@ -17,27 +18,43 @@ const (
 	lockMarketsKey   = "sync:listener:lock:markets"
 )
 
+type lpProvider interface {
+	GetAllLiquidityPoolsIds() ([]string, error)
+}
+
 type locker interface {
 	Lock(key string)
 	Unlock(key string)
 }
 
 type Listener struct {
-	logger    logrus.FieldLogger
-	h         historyStorage
-	i         intervalStorage
-	o         orderStorage
-	m         marketStorage
-	lp        liquidityPoolStorage
-	se        swapEventStorage
-	mProvider marketProvider
-	locker    locker
+	logger     logrus.FieldLogger
+	h          historyStorage
+	i          intervalStorage
+	o          orderStorage
+	m          marketStorage
+	lp         liquidityPoolStorage
+	se         swapEventStorage
+	mProvider  marketProvider
+	locker     locker
+	lpProvider lpProvider
 
 	markets map[string]types.Market
 }
 
-func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage, o orderStorage, m marketStorage, lp liquidityPoolStorage, se swapEventStorage, mProvider marketProvider, locker locker) (*Listener, error) {
-	if logger == nil || h == nil || i == nil || o == nil || m == nil || lp == nil || se == nil || mProvider == nil || locker == nil {
+func NewListener(
+	logger logrus.FieldLogger,
+	h historyStorage,
+	i intervalStorage,
+	o orderStorage,
+	m marketStorage,
+	lp liquidityPoolStorage,
+	se swapEventStorage,
+	mProvider marketProvider,
+	locker locker,
+	lpProvider lpProvider,
+) (*Listener, error) {
+	if logger == nil || h == nil || i == nil || o == nil || m == nil || lp == nil || se == nil || mProvider == nil || locker == nil || lpProvider == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewListener")
 	}
 
@@ -52,16 +69,17 @@ func NewListener(logger logrus.FieldLogger, h historyStorage, i intervalStorage,
 	}
 
 	return &Listener{
-		logger:    logger,
-		h:         h,
-		i:         i,
-		o:         o,
-		m:         m,
-		lp:        lp,
-		se:        se,
-		mProvider: mProvider,
-		locker:    locker,
-		markets:   markets,
+		logger:     logger,
+		h:          h,
+		i:          i,
+		o:          o,
+		m:          m,
+		lp:         lp,
+		se:         se,
+		mProvider:  mProvider,
+		locker:     locker,
+		markets:    markets,
+		lpProvider: lpProvider,
 	}, nil
 }
 
@@ -132,7 +150,8 @@ func (l *Listener) handleMessage(event types2.Event) {
 			eventLogger.WithError(err).Error("error syncing history")
 		}
 
-		err = l.i.SyncIntervals(m)
+		marketId := converter.GetMarketId(m.GetBase(), m.GetQuote())
+		err = l.i.SyncIntervals(marketId)
 		if err != nil {
 			eventLogger.WithError(err).Error("error syncing intervals")
 		}
@@ -167,6 +186,7 @@ func (l *Listener) handleMessage(event types2.Event) {
 	case "bze.tradebin.LiquidityAddedEvent":
 		fallthrough
 	case "bze.tradebin.LiquidityRemovedEvent":
+		time.Sleep(time.Second)
 		poolId := l.getEventPoolId(event)
 		if poolId == "" {
 			eventLogger.Error("could not find pool_id for this event")
@@ -179,6 +199,8 @@ func (l *Listener) handleMessage(event types2.Event) {
 			eventLogger.WithError(err).Errorf("error syncing liquidity pool %s", poolId)
 		}
 	case "bze.tradebin.SwapEvent":
+		//sleep to make sure that we have the event in postgres
+		time.Sleep(time.Second)
 		eventLogger.Info("syncing swap events")
 		pools, err := l.se.SyncSwapEvents(500)
 		if err != nil {
@@ -192,7 +214,13 @@ func (l *Listener) handleMessage(event types2.Event) {
 			if err != nil {
 				eventLogger.WithError(err).Errorf("error syncing liquidity pool %s", poolId)
 			}
+
+			err = l.i.SyncIntervals(poolId)
+			if err != nil {
+				eventLogger.WithError(err).Error("error syncing intervals")
+			}
 		}
+
 	}
 
 	eventLogger.Debug("message handled")
@@ -256,13 +284,28 @@ func (l *Listener) initialSync() (err error) {
 		logger.Infof("processed swap events for %d pools", len(pools))
 	}
 
+	pools, err = l.lpProvider.GetAllLiquidityPoolsIds()
+	if err != nil {
+		return err
+	}
+
+	for _, poolId := range pools {
+		logger.WithField("pool_id", poolId).Info("syncing intervals for pool")
+		err = l.i.SyncIntervals(poolId)
+		if err != nil {
+			logger.WithField("pool_id", poolId).WithError(err).
+				Error("error syncing pool intervals")
+		}
+	}
+
 	l.markets, err = getMarketsMap(l.mProvider)
 	if err != nil {
 		return err
 	}
 
 	for _, m := range l.markets {
-		logger = logger.WithField("market", converter.GetMarketId(m.GetBase(), m.GetQuote()))
+		marketId := converter.GetMarketId(m.GetBase(), m.GetQuote())
+		logger = logger.WithField("market", marketId)
 		logger.Info("syncing history")
 		err = l.h.SyncHistory(&m, 0)
 		if err != nil {
@@ -278,7 +321,7 @@ func (l *Listener) initialSync() (err error) {
 		}
 
 		logger.Info("syncing intervals")
-		err = l.i.SyncIntervals(&m)
+		err = l.i.SyncIntervals(marketId)
 		if err != nil {
 			logger.WithError(err).Error("error syncing intervals")
 			continue
