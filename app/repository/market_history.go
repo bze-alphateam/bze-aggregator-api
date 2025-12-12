@@ -202,3 +202,23 @@ func (r *MarketHistoryRepository) GetFirstMarketOrderTime(marketId string) (time
 
 	return time.Time{}, err
 }
+
+func (r *MarketHistoryRepository) GetAddressSwapHistory(address string) ([]entity.MarketHistory, error) {
+	query := `SELECT mh.* FROM market_history mh
+         JOIN market_liquidity_data mld ON mh.market_id = mld.market_id
+         WHERE (mh.maker = ? OR mh.taker = ?)
+		ORDER BY mh.executed_at DESC
+		LIMIT 100
+`
+	var results []entity.MarketHistory
+	err := r.db.Select(&results, query, address, address)
+	if err == nil {
+		return results, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return results, nil
+	}
+
+	return nil, err
+}

@@ -206,3 +206,22 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 
 	return controller.NewDexController(c.logger, tickers, orders, history, intervals)
 }
+
+func (c *ControllerFactory) GetSwapController() (*controller.SwapController, error) {
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	hRepo, err := repository.NewMarketHistoryRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	history, err := dex.NewHistoryService(c.logger, hRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	return controller.NewSwapController(c.logger, history)
+}

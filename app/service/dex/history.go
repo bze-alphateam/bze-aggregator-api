@@ -2,6 +2,7 @@ package dex
 
 import (
 	"fmt"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
@@ -12,6 +13,7 @@ import (
 
 type historyRepo interface {
 	GetHistoryBy(params request.HistoryParams) ([]entity.MarketHistory, error)
+	GetAddressSwapHistory(address string) ([]entity.MarketHistory, error)
 }
 
 type HistoryService struct {
@@ -80,4 +82,29 @@ func (h *HistoryService) GetCoingeckoHistory(params *request.HistoryParams) (*re
 	}
 
 	return &result, nil
+}
+
+func (h *HistoryService) GetAddressSwapHistory(address string) ([]response.HistoryTrade, error) {
+	hist, err := h.historyRepo.GetAddressSwapHistory(address)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []response.HistoryTrade
+	for _, order := range hist {
+		tr := response.HistoryTrade{
+			OrderId:     order.ID,
+			Price:       order.Price,
+			BaseVolume:  order.Amount,
+			QuoteVolume: order.QuoteAmount,
+			ExecutedAt:  fmt.Sprintf("%d", order.ExecutedAt.UnixMilli()),
+			OrderType:   order.OrderType,
+			Maker:       order.Maker,
+			Taker:       order.Taker,
+		}
+
+		result = append(result, tr)
+	}
+
+	return result, nil
 }
