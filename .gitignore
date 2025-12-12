@@ -1,6 +1,7 @@
 .idea
 .env
 bze-agg-linux_amd64
+bze-agg
 docker/.data
 docker/docker.env
 .claude
