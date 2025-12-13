@@ -91,7 +91,7 @@ func (h *HistoryService) GetAddressSwapHistory(address string) ([]response.Histo
 		return nil, err
 	}
 
-	var result []response.HistoryTrade
+	result := make([]response.HistoryTrade, 0)
 	for _, order := range hist {
 		base, denom, err := converter.PoolIdToDenoms(order.MarketID)
 		if err != nil {
