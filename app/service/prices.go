@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	sdkmath "cosmossdk.io/math"
@@ -20,6 +21,8 @@ const (
 
 	priceCacheExpireSeconds       = 180
 	priceBackupCacheExpireSeconds = 60 * 60 * 24 //1 day
+
+	internalPriceCacheTTL = 60 * time.Second // Cache internal prices for 1 minute
 )
 
 type PriceProvider interface {
@@ -167,19 +170,28 @@ func (p *PricesService) getPricesFromProvider() []dto.CoinPrice {
 
 // CalculateInternalPrice calculates the USD price for a given denom using internal exchange data
 func (p *PricesService) CalculateInternalPrice(denom string) (float64, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("internal_price:%s", denom)
+	cachedData, err := p.cache.Get(cacheKey)
+	if err == nil && cachedData != nil {
+		if price, err := strconv.ParseFloat(string(cachedData), 64); err == nil {
+			return price, nil
+		}
+	}
+
+	// Calculate price
+	var price float64
+	var calcErr error
+
 	// USDC is always $1.00
 	if denom == p.usdcDenom {
-		return 1.0, nil
-	}
-
-	// Handle LP tokens
-	if converter.IsLpDenom(denom) {
-		return p.calculateLpPrice(denom)
-	}
-
-	// Handle native token (BZE) - get BZE/USDC price with fallback
-	if denom == p.nativeDenom {
-		price, err := p.getLastPrice(p.nativeDenom, p.usdcDenom, func() (float64, error) {
+		price = 1.0
+	} else if converter.IsLpDenom(denom) {
+		// Handle LP tokens
+		price, calcErr = p.calculateLpPrice(denom)
+	} else if denom == p.nativeDenom {
+		// Handle native token (BZE) - get BZE/USDC price with fallback
+		price, calcErr = p.getLastPrice(p.nativeDenom, p.usdcDenom, func() (float64, error) {
 			// Fallback to external price provider
 			prices, err := p.dataProvider.GetDenominationsPrices()
 			if err != nil {
@@ -192,37 +204,43 @@ func (p *PricesService) CalculateInternalPrice(denom string) (float64, error) {
 			}
 			return 0, fmt.Errorf("BZE price not found in provider")
 		})
-		if err != nil {
-			p.logger.Errorf("failed to get BZE price: %v", err)
-			return 0.0, nil
+		if calcErr != nil {
+			p.logger.Errorf("failed to get BZE price: %v", calcErr)
+			price = 0.0
+			calcErr = nil
 		}
-		return price, nil
+	} else {
+		// For other assets, try to get price in USDC and BZE
+		priceInUsd, _ := p.getLastPrice(denom, p.usdcDenom, nil)
+		priceInBze, _ := p.getLastPrice(denom, p.nativeDenom, nil)
+
+		if priceInBze <= 0 {
+			// No BZE market -> use USD price
+			price = priceInUsd
+		} else {
+			// Get BZE/USD price
+			bzeUsdPrice, err := p.CalculateInternalPrice(p.nativeDenom)
+			if err != nil || bzeUsdPrice <= 0 {
+				price = priceInUsd
+			} else {
+				priceInUsdFromBze := priceInBze * bzeUsdPrice
+
+				if priceInUsd <= 0 {
+					// No USD market -> use BZE-derived price
+					price = priceInUsdFromBze
+				} else {
+					// Both markets exist -> return average
+					price = (priceInUsd + priceInUsdFromBze) / 2
+				}
+			}
+		}
 	}
 
-	// For other assets, try to get price in USDC and BZE
-	priceInUsd, _ := p.getLastPrice(denom, p.usdcDenom, nil)
-	priceInBze, _ := p.getLastPrice(denom, p.nativeDenom, nil)
+	// Cache the result
+	priceStr := strconv.FormatFloat(price, 'f', -1, 64)
+	_ = p.cache.Set(cacheKey, []byte(priceStr), internalPriceCacheTTL)
 
-	if priceInBze <= 0 {
-		// No BZE market -> use USD price
-		return priceInUsd, nil
-	}
-
-	// Get BZE/USD price
-	bzeUsdPrice, err := p.CalculateInternalPrice(p.nativeDenom)
-	if err != nil || bzeUsdPrice <= 0 {
-		return priceInUsd, nil
-	}
-
-	priceInUsdFromBze := priceInBze * bzeUsdPrice
-
-	if priceInUsd <= 0 {
-		// No USD market -> use BZE-derived price
-		return priceInUsdFromBze, nil
-	}
-
-	// Both markets exist -> return average
-	return (priceInUsd + priceInUsdFromBze) / 2, nil
+	return price, calcErr
 }
 
 // calculateLpPrice calculates the price of an LP token based on reserves
