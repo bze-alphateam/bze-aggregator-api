@@ -54,3 +54,18 @@ func (r *MarketLiquidityDataRepository) GetAllLiquidityPoolsIds() ([]string, err
 
 	return nil, err
 }
+
+func (r *MarketLiquidityDataRepository) GetLiquidityDataByMarketId(marketId string) (*entity.MarketLiquidityData, error) {
+	query := `SELECT * FROM market_liquidity_data WHERE market_id = ? LIMIT 1;`
+	var result entity.MarketLiquidityData
+	err := r.db.Get(&result, query, marketId)
+	if err == nil {
+		return &result, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	return nil, err
+}

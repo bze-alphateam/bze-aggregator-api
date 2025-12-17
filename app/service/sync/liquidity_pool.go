@@ -63,8 +63,8 @@ func (lp *LiquidityPool) SyncLiquidityPools() error {
 	}
 
 	for _, source := range list {
-		//do not save market if it already exists
-		if existingMarkets.Get(converter.GetMarketId(source.Base, source.Quote)) == nil {
+		//do not save the market(pool) if it already exists
+		if existingMarkets.Get(converter.CreatePoolId(source.Base, source.Quote)) == nil {
 			marketEntity := converter.NewMarketEntityFromLiquidityPool(&source)
 			marketEntities = append(marketEntities, marketEntity)
 		}

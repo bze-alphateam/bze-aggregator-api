@@ -3,17 +3,18 @@ package response
 import "fmt"
 
 type CoingeckoTicker struct {
-	TickerId    string  `json:"ticker_id"`       //market
-	Base        string  `json:"base_currency"`   //market
-	Quote       string  `json:"target_currency"` //market
-	MarketId    string  `json:"pool_id"`         //market
-	LastPrice   float64 `json:"last_price"`      //market_history  -> last executed at
-	BaseVolume  float64 `json:"base_volume"`     //market_intervals -> aggregate 5 minutes intervals
-	QuoteVolume float64 `json:"target_volume"`   //market_intervals -> aggregate 5 minutes intervals
-	Bid         float64 `json:"bid"`             //market_order -> the highest buy
-	Ask         float64 `json:"ask"`             //market_order -> the lowest sell
-	High        float64 `json:"high"`            //market_history -> the highest in this interval
-	Low         float64 `json:"low"`             //market_history -> the lowest in this interval
+	TickerId       string  `json:"ticker_id"`                  //market
+	Base           string  `json:"base_currency"`              //market
+	Quote          string  `json:"target_currency"`            //market
+	MarketId       string  `json:"pool_id"`                    //market
+	LastPrice      float64 `json:"last_price"`                 //market_history  -> last executed at
+	BaseVolume     float64 `json:"base_volume"`                //market_intervals -> aggregate 5 minutes intervals
+	QuoteVolume    float64 `json:"target_volume"`              //market_intervals -> aggregate 5 minutes intervals
+	Bid            float64 `json:"bid"`                        //market_order -> the highest buy
+	Ask            float64 `json:"ask"`                        //market_order -> the lowest sell
+	High           float64 `json:"high"`                       //market_history -> the highest in this interval
+	Low            float64 `json:"low"`                        //market_history -> the lowest in this interval
+	LiquidityInUsd float64 `json:"liquidity_in_usd,omitempty"` //calculated for LP pools only
 }
 
 func (c *CoingeckoTicker) SetMarketDetails(base, quote, marketId string) {
@@ -55,6 +56,10 @@ func (c *CoingeckoTicker) SetLow(low float64) {
 func (c *CoingeckoTicker) SetChange(_ float32) {}
 
 func (c *CoingeckoTicker) SetOpenPrice(_ float64) {
+}
+
+func (c *CoingeckoTicker) SetLiquidityInUsd(liquidity float64) {
+	c.LiquidityInUsd = liquidity
 }
 
 type Ticker struct {
@@ -112,4 +117,8 @@ func (t *Ticker) SetHigh(high float64) {
 
 func (t *Ticker) SetLow(low float64) {
 	t.Low = low
+}
+
+func (t *Ticker) SetLiquidityInUsd(_ float64) {
+	// Not used for regular Ticker format
 }

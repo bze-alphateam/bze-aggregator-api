@@ -97,7 +97,71 @@ func (c *ControllerFactory) GetPricesController() (*controller.PricesController,
 		return nil, fmt.Errorf("could not instantiate coingecko client: %w", err)
 	}
 
-	service, err := appService.NewPricesService(cache, cgClient, c.logger)
+	// Database and repositories
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	marketRepo, err := repository.NewMarketRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	liquidityRepo, err := repository.NewMarketLiquidityDataRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	historyRepo, err := repository.NewMarketHistoryRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	// Chain registry and supply service
+	locker := lock.GetInMemoryLocker()
+	grpc, err := client.NewGrpcClient(c.config, locker, c.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	dp, err := client.NewBlockchainQueryClient(c.config.Blockchain.RestHost)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate blockchain query client: %w", err)
+	}
+
+	regClient, err := client.NewChainRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	meta, err := data_provider.NewDenomMetadataProvider(grpc, c.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(c.logger, cache, regClient, meta)
+	if err != nil {
+		return nil, err
+	}
+
+	supplyService, err := appService.NewSupplyService(c.logger, cache, dp, chainReg)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate supply service: %w", err)
+	}
+
+	service, err := appService.NewPricesService(
+		cache,
+		cgClient,
+		c.logger,
+		marketRepo,
+		liquidityRepo,
+		historyRepo,
+		chainReg,
+		supplyService,
+		c.config.Prices.NativeDenom,
+		c.config.Prices.UsdcDenom,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate prices service: %w", err)
 	}
@@ -184,7 +248,70 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 		return nil, err
 	}
 
-	tickers, err := dex.NewTickersService(c.logger, mRepo, iRepo, oRepo)
+	liquidityRepo, err := repository.NewMarketLiquidityDataRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	// Setup dependencies for price calculation and supply
+	cache := appService.NewInMemoryCache()
+	if cache == nil {
+		return nil, fmt.Errorf("could not instantiate in memory cache")
+	}
+
+	locker := lock.GetInMemoryLocker()
+	grpc, err := client.NewGrpcClient(c.config, locker, c.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	dp, err := client.NewBlockchainQueryClient(c.config.Blockchain.RestHost)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate blockchain query client: %w", err)
+	}
+
+	regClient, err := client.NewChainRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	meta, err := data_provider.NewDenomMetadataProvider(grpc, c.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(c.logger, cache, regClient, meta)
+	if err != nil {
+		return nil, err
+	}
+
+	supplyService, err := appService.NewSupplyService(c.logger, cache, dp, chainReg)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate supply service: %w", err)
+	}
+
+	cgClient, err := client.NewCoingeckoClient(c.config.Coingecko.Host, c.config.Prices.Denominations)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate coingecko client: %w", err)
+	}
+
+	pricesService, err := appService.NewPricesService(
+		cache,
+		cgClient,
+		c.logger,
+		mRepo,
+		liquidityRepo,
+		hRepo,
+		chainReg,
+		supplyService,
+		c.config.Prices.NativeDenom,
+		c.config.Prices.UsdcDenom,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate prices service: %w", err)
+	}
+
+	tickers, err := dex.NewTickersService(c.logger, mRepo, iRepo, oRepo, pricesService, liquidityRepo, supplyService)
 	if err != nil {
 		return nil, err
 	}

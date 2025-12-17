@@ -1,6 +1,8 @@
 package dex
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +32,7 @@ type ticker interface {
 	SetLow(low float64)
 	SetChange(change float32)
 	SetOpenPrice(price float64)
+	SetLiquidityInUsd(liquidity float64)
 }
 
 type marketRepo interface {
@@ -45,23 +48,50 @@ type tickersOrdersRepo interface {
 	GetLowestSell(marketId string) (*entity.MarketOrder, error)
 }
 
-type Tickers struct {
-	logger logrus.FieldLogger
-	mRepo  marketRepo
-	iRepo  intervalsRepo
-	oRepo  tickersOrdersRepo
+type priceCalculator interface {
+	CalculateInternalPrice(denom string) (float64, error)
 }
 
-func NewTickersService(logger logrus.FieldLogger, mRepo marketRepo, iRepo intervalsRepo, oRepo tickersOrdersRepo) (*Tickers, error) {
-	if logger == nil || mRepo == nil || iRepo == nil || oRepo == nil {
+type liquidityDataRepo interface {
+	GetLiquidityDataByMarketId(marketId string) (*entity.MarketLiquidityData, error)
+}
+
+type supplyService interface {
+	GetUTotalSupply(denom string) (string, error)
+}
+
+type Tickers struct {
+	logger        logrus.FieldLogger
+	mRepo         marketRepo
+	iRepo         intervalsRepo
+	oRepo         tickersOrdersRepo
+	priceCalc     priceCalculator
+	liquidityRepo liquidityDataRepo
+	supplyService supplyService
+}
+
+func NewTickersService(
+	logger logrus.FieldLogger,
+	mRepo marketRepo,
+	iRepo intervalsRepo,
+	oRepo tickersOrdersRepo,
+	priceCalc priceCalculator,
+	liquidityRepo liquidityDataRepo,
+	supplyService supplyService,
+) (*Tickers, error) {
+	if logger == nil || mRepo == nil || iRepo == nil || oRepo == nil ||
+		priceCalc == nil || liquidityRepo == nil || supplyService == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewTickersService")
 	}
 
 	return &Tickers{
-		logger: logger.WithField("service", "Dex.TickersService"),
-		mRepo:  mRepo,
-		iRepo:  iRepo,
-		oRepo:  oRepo,
+		logger:        logger.WithField("service", "Dex.TickersService"),
+		mRepo:         mRepo,
+		iRepo:         iRepo,
+		oRepo:         oRepo,
+		priceCalc:     priceCalc,
+		liquidityRepo: liquidityRepo,
+		supplyService: supplyService,
 	}, nil
 }
 
@@ -199,5 +229,72 @@ func (t *Tickers) buildTicker(market entity.MarketWithLastPrice, ticker ticker) 
 
 	ticker.SetChange(converter.DecToFloat32Rounded(priceChange))
 
+	// Calculate liquidity in USD for LP pools
+	t.calculateAndSetLiquidity(market.MarketID, ticker)
+
 	return nil
+}
+
+// calculateAndSetLiquidity calculates the total liquidity in USD for LP pools
+func (t *Tickers) calculateAndSetLiquidity(marketId string, ticker ticker) {
+	//guess if it's a LP pool by checking that market id contains _
+	if !strings.Contains(marketId, "_") {
+		return
+	}
+
+	// Check if this market has liquidity data (i.e., is an LP pool)
+	liquidityData, err := t.liquidityRepo.GetLiquidityDataByMarketId(marketId)
+	if err != nil || liquidityData == nil {
+		// Not an LP pool, skip liquidity calculation
+		return
+	}
+
+	lpDenom := liquidityData.LpDenom
+	if lpDenom == "" {
+		t.logger.Warnf("LP denom is empty for market %s", marketId)
+		return
+	}
+
+	// Calculate the price per LP token in USD
+	lpTokenPrice, err := t.priceCalc.CalculateInternalPrice(lpDenom)
+	if err != nil {
+		t.logger.Errorf("failed to calculate LP token price for %s: %v", lpDenom, err)
+		return
+	}
+
+	if lpTokenPrice <= 0 {
+		t.logger.Warnf("LP token price is zero or negative for %s", lpDenom)
+		return
+	}
+
+	// Get the total supply of the LP token in micro amounts
+	lpSupplyStr, err := t.supplyService.GetUTotalSupply(lpDenom)
+	if err != nil {
+		t.logger.Errorf("failed to get LP token supply for %s: %v", lpDenom, err)
+		return
+	}
+
+	lpSupply, err := math.LegacyNewDecFromStr(lpSupplyStr)
+	if err != nil {
+		t.logger.Errorf("failed to parse LP supply string %s: %v", lpSupplyStr, err)
+		return
+	}
+
+	// LP tokens have 12 decimals, so divide by 10^12 to get whole tokens
+	lpDecimalsDivisor := math.LegacyNewDec(10).Power(12)
+	lpSupplyWhole := lpSupply.Quo(lpDecimalsDivisor)
+
+	// Convert LP token price to LegacyDec
+	lpPriceDec := math.LegacyMustNewDecFromStr(fmt.Sprintf("%f", lpTokenPrice))
+
+	// Total liquidity = lpTokenPrice * lpSupplyWhole
+	totalLiquidity := lpPriceDec.Mul(lpSupplyWhole)
+
+	liquidityFloat, err := totalLiquidity.Float64()
+	if err != nil {
+		t.logger.Errorf("failed to convert liquidity to float64: %v", err)
+		return
+	}
+
+	ticker.SetLiquidityInUsd(liquidityFloat)
 }
