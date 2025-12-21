@@ -1,6 +1,9 @@
 package response
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type CoingeckoTicker struct {
 	TickerId       string  `json:"ticker_id"`                  //market
@@ -22,7 +25,11 @@ func (c *CoingeckoTicker) SetMarketDetails(base, quote, marketId string) {
 	c.Base = base
 	c.Quote = quote
 
-	c.TickerId = fmt.Sprintf("%s_%s", base, quote)
+	tickerPrefix := ""
+	if strings.Contains(marketId, "_") {
+		tickerPrefix = "lp_"
+	}
+	c.TickerId = fmt.Sprintf("%s%s_%s", tickerPrefix, base, quote)
 }
 
 func (c *CoingeckoTicker) SetLastPrice(price float64) {
