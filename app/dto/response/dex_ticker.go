@@ -25,11 +25,13 @@ func (c *CoingeckoTicker) SetMarketDetails(base, quote, marketId string) {
 	c.Base = base
 	c.Quote = quote
 
-	tickerPrefix := ""
+	ticker := fmt.Sprintf("%s_%s", base, quote)
 	if strings.Contains(marketId, "_") {
-		tickerPrefix = "lp_"
+		ticker = fmt.Sprintf("%s_%s", "lp", ticker)
+		c.MarketId = ticker
 	}
-	c.TickerId = fmt.Sprintf("%s%s_%s", tickerPrefix, base, quote)
+
+	c.TickerId = ticker
 }
 
 func (c *CoingeckoTicker) SetLastPrice(price float64) {
