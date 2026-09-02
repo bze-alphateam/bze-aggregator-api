@@ -23,4 +23,7 @@ type HistoryTrade struct {
 	OrderType   string `json:"order_type"`
 	Maker       string `json:"maker"`
 	Taker       string `json:"taker"`
+	PoolId      string `json:"pool_id,omitempty"`
+	Base        string `json:"base,omitempty"`
+	Quote       string `json:"quote,omitempty"`
 }

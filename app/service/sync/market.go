@@ -1,12 +1,13 @@
 package sync
 
 import (
+	"time"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 type marketProvider interface {
@@ -15,6 +16,7 @@ type marketProvider interface {
 
 type marketRepo interface {
 	SaveIfNotExists(items []*entity.Market) error
+	GetMarketsMap() (entity.MarketsMap, error)
 }
 
 type marketHistoryRepo interface {

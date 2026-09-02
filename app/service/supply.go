@@ -153,3 +153,14 @@ func (s *Supply) getDisplayDenom(denom string) (*chain_registry.ChainRegistryAss
 
 	return display, nil
 }
+
+// GetUTotalSupply returns the total supply in micro amounts (raw value from blockchain)
+func (s *Supply) GetUTotalSupply(denom string) (string, error) {
+	uTotalSupply, err := s.dataProvider.GetTotalSupply(denom)
+	if err != nil {
+		s.logger.Errorf("failed to get total supply from data provider: %v", err)
+		return "0", err
+	}
+
+	return fmt.Sprintf("%d", uTotalSupply), nil
+}

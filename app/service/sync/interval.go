@@ -2,14 +2,14 @@ package sync
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/bze-alphateam/bze-aggregator-api/app/entity"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/converter"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/interval"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
-	tradebinTypes "github.com/bze-alphateam/bze/x/tradebin/types"
 	"github.com/sirupsen/logrus"
-	"sync"
-	"time"
 )
 
 type histStorage interface {
@@ -43,9 +43,7 @@ func NewIntervalSync(logger logrus.FieldLogger, histStorage histStorage, l locke
 }
 
 // SyncIntervals - queries for last intervals synced for each configured duration and tries to fill them from history
-func (i *IntervalSync) SyncIntervals(market *tradebinTypes.Market) error {
-	marketId := converter.GetMarketId(market.GetBase(), market.GetQuote())
-
+func (i *IntervalSync) SyncIntervals(marketId string) error {
 	i.locker.Lock(getIntervalLockKey(marketId))
 	defer i.locker.Unlock(getIntervalLockKey(marketId))
 

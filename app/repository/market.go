@@ -40,6 +40,30 @@ func (r *MarketRepository) GetMarket(marketId string) (*entity.Market, error) {
 	return nil, err
 }
 
+func (r *MarketRepository) GetMarketsMap() (entity.MarketsMap, error) {
+	query := "SELECT * FROM market;"
+	results := make(entity.MarketsMap)
+	rows, err := r.db.Queryx(query)
+	if errors.Is(err, sql.ErrNoRows) {
+		return results, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var ent entity.Market
+		if err = rows.StructScan(&ent); err != nil {
+			return nil, err
+		}
+		results[ent.MarketID] = ent
+	}
+
+	return results, nil
+}
+
 func (r *MarketRepository) SaveIfNotExists(items []*entity.Market) error {
 	query := `
 	INSERT INTO market (

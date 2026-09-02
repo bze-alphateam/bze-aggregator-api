@@ -57,6 +57,11 @@ func Start() {
 		logger.Fatalf("could not start server: %s", err)
 	}
 
+	swapCtrl, err := ctrlFactory.GetSwapController()
+	if err != nil {
+		logger.Fatalf("could not start server: %s", err)
+	}
+
 	// Routes
 	e.GET("/api/supply/total", supplyCtrl.TotalSupplyHandler)
 	e.GET("/api/supply/circulating", supplyCtrl.CirculatingSupplyHandler)
@@ -72,6 +77,7 @@ func Start() {
 	e.GET("/api/dex/orders", dexCtrl.OrdersHandler)
 	e.GET("/api/dex/history", dexCtrl.HistoryHandler)
 	e.GET("/api/dex/intervals", dexCtrl.IntervalsHandler)
+	e.GET("/api/dex/swaps", swapCtrl.AddressSwapHistoryHandler)
 
 	// Start server
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", appCfg.Server.Port)))

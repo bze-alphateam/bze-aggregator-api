@@ -3,9 +3,11 @@ package sync
 import "fmt"
 
 const (
-	intervalLock = "sync:interval:%s"
-	historyLock  = "sync:history:%s"
-	orderLock    = "sync:order:%s"
+	intervalLock   = "sync:interval:%s"
+	historyLock    = "sync:history:%s"
+	orderLock      = "sync:order:%s"
+	lpLock         = "sync:lps"
+	swapEventsLock = "sync:swap_events"
 )
 
 type locker interface {
@@ -23,4 +25,12 @@ func getHistoryLockKey(marketId string) string {
 
 func getOrderLockKey(marketId string) string {
 	return fmt.Sprintf(orderLock, marketId)
+}
+
+func getLpLockKey() string {
+	return lpLock
+}
+
+func getSwapEventsLockKey() string {
+	return swapEventsLock
 }

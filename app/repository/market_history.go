@@ -25,6 +25,23 @@ func NewMarketHistoryRepository(db internal.Database) (*MarketHistoryRepository,
 	return &MarketHistoryRepository{db: db}, nil
 }
 
+func (r *MarketHistoryRepository) SaveMarketHistory(items []*entity.MarketHistory) error {
+	query := `
+	INSERT INTO market_history (
+		market_id, order_type, amount, price, executed_at, maker, taker, i_quote_amount, i_created_at
+	) VALUES (
+		:market_id, :order_type, :amount, :price, :executed_at, :maker, :taker, :i_quote_amount, NOW()
+	);
+`
+
+	_, err := r.db.NamedExec(query, items)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *MarketHistoryRepository) GetLastHistoryOrder(marketId string) (*entity.MarketHistory, error) {
 	ent := entity.MarketHistory{}
 	query := `SELECT * FROM market_history WHERE market_id = ? ORDER BY executed_at DESC LIMIT 1`
@@ -184,4 +201,24 @@ func (r *MarketHistoryRepository) GetFirstMarketOrderTime(marketId string) (time
 	}
 
 	return time.Time{}, err
+}
+
+func (r *MarketHistoryRepository) GetAddressSwapHistory(address string) ([]entity.MarketHistory, error) {
+	query := `SELECT mh.* FROM market_history mh
+         JOIN market_liquidity_data mld ON mh.market_id = mld.market_id
+         WHERE (mh.maker = ? OR mh.taker = ?)
+		ORDER BY mh.executed_at DESC
+		LIMIT 100
+`
+	var results []entity.MarketHistory
+	err := r.db.Select(&results, query, address, address)
+	if err == nil {
+		return results, nil
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return results, nil
+	}
+
+	return nil, err
 }

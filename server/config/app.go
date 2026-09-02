@@ -21,6 +21,8 @@ type CoingeckoConfig struct {
 
 type PricesConfig struct {
 	Denominations string
+	NativeDenom   string
+	UsdcDenom     string
 }
 
 type BlockchainConfig struct {
@@ -129,6 +131,16 @@ func loadDefaultConfig(env map[string]string, err error) *AppConfig {
 		prices = ""
 	}
 
+	nativeDenom, ok := env["NATIVE_DENOM"]
+	if !ok {
+		nativeDenom = ""
+	}
+
+	usdcDenom, ok := env["USDC_DENOM"]
+	if !ok {
+		usdcDenom = ""
+	}
+
 	return &AppConfig{
 		Server: Server{
 			Port: port,
@@ -138,6 +150,8 @@ func loadDefaultConfig(env map[string]string, err error) *AppConfig {
 		},
 		Prices: PricesConfig{
 			Denominations: prices,
+			NativeDenom:   nativeDenom,
+			UsdcDenom:     usdcDenom,
 		},
 	}
 }
