@@ -1,5 +1,16 @@
 # bze-aggregator-api
 
+### Database schema
+The MySQL/MariaDB schema lives in `docker/mysql/init/01-schema.sql` and is
+applied automatically on the first start of the `docker/docker-compose.yml`
+database (empty data dir). To apply it to an existing server, pipe it in
+manually. Index choices are documented inline in the schema file — keep them
+in sync with `app/repository` queries.
+
+The PostgreSQL side (`POSTGRES_DSN`) is **not** ours: it is the CometBFT
+event index written by a BZE node running with `indexer = "psql"`; its schema
+ships with the node.
+
 ### Environment
 `.env` file can contain:  
 ```
