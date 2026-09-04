@@ -63,7 +63,10 @@ func (lp *LiquidityPool) SyncLiquidityPools() error {
 	}
 
 	for _, source := range list {
-		//do not save the market(pool) if it already exists
+		//do not save the market(pool) if it already exists.
+		//this check is not an optimisation: SaveIfNotExists is an upsert that
+		//overwrites i_created_at with time.Now(), which would undo the dates the
+		//swap back-fill sets so old candles stay visible in the dapp
 		if existingMarkets.Get(converter.CreatePoolId(source.Base, source.Quote)) == nil {
 			marketEntity := converter.NewMarketEntityFromLiquidityPool(&source)
 			marketEntities = append(marketEntities, marketEntity)
@@ -110,7 +113,8 @@ func (lp *LiquidityPool) SyncLiquidityPoolById(poolId string) error {
 	}
 
 	if existingMarkets.Get(marketEntity.MarketID) == nil {
-		// Save or update market
+		// Save or update market. Same as in SyncLiquidityPools: skipping known
+		// markets protects i_created_at from being reset to time.Now()
 		err = lp.marketStorage.SaveIfNotExists([]*entity.Market{marketEntity})
 		if err != nil {
 			return err

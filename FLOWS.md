@@ -26,6 +26,15 @@ Below is a plain-English rundown of what comes from where and how it is processe
 
 This flow lets us ingest swaps as soon as the node indexes them, without waiting for gRPC history pagination.
 
+## LP Swap Back-Fill (Disaster Recovery)
+`bze-agg swap-backfill` recovers pool swaps that no longer exist anywhere else. Order-book history can always be re-paginated from chain state, but LP swaps only ever existed as emitted `bze.tradebin.SwapEvent`s: if the node's Postgres index is lost, walking historical blocks is the only way back. Asking the node to search by event type (`tx_search`) is not an option - it overloads archive nodes.
+
+Everything is staged first and committed as a separate, confirmed step, so the command can run for days next to a working listener without the two sharing a single row, candle or flag:
+- `init [height]` - reports the oldest swap still held per pool (that timestamp is where the data stops; nothing on chain or in either database records it) and creates `temp_checkpoint` + `temp_market_history` for the range `height` down to the liquidity pools upgrade at 20237800.
+- `run` - walks the range descending, skips failed transactions, picks up both transaction and block-hook swaps (the hourly fee conversion swaps through the pools too), parses the swap events through the same converters as the live sync, and stages what it finds. Rows and checkpoint advance in one transaction per chunk, so an interrupted run resumes exactly where it stopped.
+- `commit` - drops staged rows the listener has already ingested (anything at or after a pool's oldest live trade, counting only rows the back-fill did not insert itself - otherwise a resumed commit would read its own work back as live data and skip the days it had not reached yet), then inserts the rest one day at a time. Each day is a single transaction: rows, candles and the staged rows' `committed` flag land together, which is what makes a killed commit safe to re-run. The day the live data starts in is committed with `i_added_to_interval = 0` and no candles - the listener owns that window and rebuilds it from the complete set. Finally each pool's `market.i_created_at` is moved back to cover the recovered candles (the intervals API uses it as a hard floor) and the staging tables are renamed to `swap_backfill_*` as a record of what was inserted.
+- `cleanup` - discards a back-fill. Refuses once anything was committed: the staging tables are then the only record of it.
+
 ## Listener Flow (Live Sync)
 `bze-agg sync listener` wires everything together:
 - Subscribes to Tendermint WebSocket events for `tradebin` types.

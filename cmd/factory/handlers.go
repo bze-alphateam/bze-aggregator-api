@@ -3,6 +3,7 @@ package factory
 import (
 	"github.com/bze-alphateam/bze-aggregator-api/app/repository"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/backfill"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/data_provider"
 	"github.com/bze-alphateam/bze-aggregator-api/app/service/lock"
@@ -465,4 +466,67 @@ func GetSyncEventsHandler(cfg *config.AppConfig, logger logrus.FieldLogger) (*ha
 	}
 
 	return handler, nil
+}
+
+// GetSwapBackfillHandler wires the LP swap back-fill. node overrides
+// BLOCKCHAIN_RPC_HOST: the scan reads thousands of historical blocks and
+// belongs on an archive node, not on the one the listener uses.
+func GetSwapBackfillHandler(cfg *config.AppConfig, logger logrus.FieldLogger, node string) (*handlers.SwapBackfill, error) {
+	locker := lock.GetInMemoryLocker()
+	db, err := connector.NewDatabaseConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	backfillRepo, err := repository.NewSwapBackfillRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	marketRepo, err := repository.NewMarketRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	grpc, err := client.NewGrpcClient(cfg, locker, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	meta, err := data_provider.NewDenomMetadataProvider(grpc, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	regClient, err := client.NewChainRegistry()
+	if err != nil {
+		return nil, err
+	}
+
+	chainReg, err := data_provider.NewChainRegistry(logger, service.NewInMemoryCache(), regClient, meta)
+	if err != nil {
+		return nil, err
+	}
+
+	rpcHost := cfg.Blockchain.RpcHost
+	if node != "" {
+		rpcHost = node
+	}
+
+	rpcClient, err := client.GetRpcClient(rpcHost)
+	if err != nil {
+		return nil, err
+	}
+
+	bp, err := data_provider.NewBlockchainProvider(rpcClient, service.NewInMemoryCache(), logger)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, err := backfill.NewService(logger, backfillRepo, marketRepo, bp, chainReg)
+	if err != nil {
+		return nil, err
+	}
+
+	return handlers.NewSwapBackfillHandler(logger, svc)
 }
