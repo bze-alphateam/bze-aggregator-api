@@ -47,6 +47,13 @@ func (b BlockchainProvider) GetBlock(height int64) (*coretypes.ResultBlock, erro
 	return b.client.Block(context.Background(), &height)
 }
 
+// GetBlockResults returns the ABCI results of a block: it is the only way to
+// read events of already indexed blocks without asking the node to search by
+// event type (tx_search), which overloads archive nodes.
+func (b BlockchainProvider) GetBlockResults(ctx context.Context, height int64) (*coretypes.ResultBlockResults, error) {
+	return b.client.BlockResults(ctx, &height)
+}
+
 // GetBlockTime retrieves the time of a block at the specified height using cache or blockchain data.
 func (b BlockchainProvider) GetBlockTime(height int64) (time.Time, error) {
 	cacheKey := fmt.Sprintf(blockTimeKey, height)

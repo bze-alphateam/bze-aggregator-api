@@ -82,6 +82,17 @@ func (r *MarketRepository) SaveIfNotExists(items []*entity.Market) error {
 	return nil
 }
 
+// UpdateCreatedAt moves a market's i_created_at. The intervals API uses it as
+// a hard floor (dex.Intervals.getQueryParams), so back-filled candles stay
+// invisible until the market is dated back to cover them.
+func (r *MarketRepository) UpdateCreatedAt(marketId string, createdAt time.Time) error {
+	query := "UPDATE market SET i_created_at = ? WHERE market_id = ?"
+
+	_, err := r.db.Exec(query, createdAt, marketId)
+
+	return err
+}
+
 func (r *MarketRepository) GetMarketsWithLastExecuted(hours int) ([]entity.MarketWithLastPrice, error) {
 	query := `
 		SELECT 

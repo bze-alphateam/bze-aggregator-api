@@ -111,3 +111,9 @@ CREATE TABLE IF NOT EXISTS market_liquidity_data (
     PRIMARY KEY (id),
     UNIQUE KEY uq_mld_market (market_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+-- Not created here: `swap-backfill init` creates temp_checkpoint and
+-- temp_market_history at runtime, and a successful commit renames them to
+-- swap_backfill_checkpoint_<timestamp> / swap_backfill_history_<timestamp>.
+-- They are disaster-recovery scratch space, not part of the live schema - see
+-- the LP swap back-fill section of FLOWS.md.
