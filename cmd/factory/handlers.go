@@ -196,7 +196,12 @@ func GetMarketIntervalSyncHandler(cfg *config.AppConfig, logger logrus.FieldLogg
 		return nil, err
 	}
 
-	handler, err := handlers.NewMarketIntervalSync(logger, marketProvider, history)
+	lpRepo, err := repository.NewMarketLiquidityDataRepository(db)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := handlers.NewMarketIntervalSync(logger, marketProvider, history, lpRepo)
 	if err != nil {
 		return nil, err
 	}
