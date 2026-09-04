@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
-	"github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/sirupsen/logrus"
 )
@@ -21,13 +20,22 @@ type blockCache interface {
 	Set(key string, data []byte, expiration time.Duration) error
 }
 
+// blockClient is the slice of the CometBFT RPC client this provider needs.
+// *http.HTTP satisfies it; declaring it here is what lets the block time
+// caching be tested without a node.
+type blockClient interface {
+	Status(ctx context.Context) (*coretypes.ResultStatus, error)
+	Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error)
+	BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error)
+}
+
 type BlockchainProvider struct {
-	client *http.HTTP
+	client blockClient
 	cache  blockCache
 	logger logrus.FieldLogger
 }
 
-func NewBlockchainProvider(client *http.HTTP, cache blockCache, l logrus.FieldLogger) (*BlockchainProvider, error) {
+func NewBlockchainProvider(client blockClient, cache blockCache, l logrus.FieldLogger) (*BlockchainProvider, error) {
 	if client == nil || cache == nil || l == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewBlockchainProvider")
 	}
@@ -61,7 +69,7 @@ func (b BlockchainProvider) GetBlockTime(height int64) (time.Time, error) {
 	if err != nil {
 		b.logger.WithError(err).Error("error getting cached block time")
 	} else if cached != nil {
-		return time.Parse(time.RFC3339, string(cached))
+		return time.Parse(time.RFC3339Nano, string(cached))
 	}
 
 	block, err := b.GetBlock(height)
@@ -69,7 +77,11 @@ func (b BlockchainProvider) GetBlockTime(height int64) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	err = b.cache.Set(cacheKey, []byte(block.Block.Header.Time.Format(time.RFC3339)), blockCacheDuration)
+	// RFC3339Nano and not RFC3339: the latter has no fractional second, so it
+	// would round-trip the block time through the cache with its milliseconds
+	// stripped and callers would see a different timestamp for the same block
+	// depending on whether they hit the cache.
+	err = b.cache.Set(cacheKey, []byte(block.Block.Header.Time.Format(time.RFC3339Nano)), blockCacheDuration)
 	if err != nil {
 		b.logger.WithError(err).Error("error caching block time")
 	}
