@@ -1,7 +1,6 @@
 name: build
 
-# PR sanity check: the code must compile. Test/lint gates will be added when
-# the repo gets automated tests.
+# PR sanity check: the code must compile and the unit tests must pass.
 on:
   pull_request:
   workflow_dispatch:
@@ -18,3 +17,4 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go build ./...
+      - run: go test ./...
