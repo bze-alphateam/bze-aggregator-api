@@ -89,6 +89,15 @@ func (s *SwapBackfill) Cleanup(force bool) error {
 	}
 
 	s.printStatus(status)
+
+	// ask the service first when it is going to refuse anyway: making the
+	// operator confirm a destructive action and only then telling them it
+	// cannot happen is the wrong way round. It refuses before it drops
+	// anything, so nothing is lost here.
+	if status.Counts.Committed > 0 && !force {
+		return s.svc.Cleanup(force)
+	}
+
 	s.printf("\nThis drops both staging tables. Everything staged and not yet committed is lost.\n")
 
 	confirmed, err := s.confirm()

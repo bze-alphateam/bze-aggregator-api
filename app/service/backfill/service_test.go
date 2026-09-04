@@ -186,17 +186,21 @@ func (f *fakeRepo) CommitChunk(rows []*entity.MarketHistory, intervals []*entity
 }
 
 // GetPoolsOldestSwap answers like the live query would: the oldest of what the
-// listener already had and what the back-fill has inserted so far.
-func (f *fakeRepo) GetPoolsOldestSwap() ([]entity.PoolOldestSwap, error) {
+// listener already had and what the back-fill has inserted so far. With
+// excludeBackfilled the inserted rows drop out, leaving the listener's own
+// floor - which is what the overlap guard asks for.
+func (f *fakeRepo) GetPoolsOldestSwap(excludeBackfilled bool) ([]entity.PoolOldestSwap, error) {
 	oldest := make(map[string]time.Time)
 	for marketId, floor := range f.liveFloors {
 		oldest[marketId] = floor
 	}
 
-	for _, row := range f.inserted {
-		current, ok := oldest[row.MarketID]
-		if !ok || row.ExecutedAt.Before(current) {
-			oldest[row.MarketID] = row.ExecutedAt
+	if !excludeBackfilled {
+		for _, row := range f.inserted {
+			current, ok := oldest[row.MarketID]
+			if !ok || row.ExecutedAt.Before(current) {
+				oldest[row.MarketID] = row.ExecutedAt
+			}
 		}
 	}
 
@@ -593,6 +597,66 @@ func TestCommitResumesAfterACrashWithoutDuplicates(t *testing.T) {
 
 	if plan.Eligible != 0 {
 		t.Fatalf("expected nothing left to commit, got %d rows", plan.Eligible)
+	}
+}
+
+func TestCommitResumesAfterADayFailedMidWay(t *testing.T) {
+	repo, _, svc := commitFixture(t)
+
+	plan, err := svc.CommitPlan()
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	// the first day lands, the second one dies. The rows of 2026-08-01 are now
+	// in market_history and they are older than anything the listener holds: if
+	// the guard read them back as live data, 2026-08-02 would look already-held
+	// and be dropped for good.
+	repo.failCommitAt = 2
+	if _, err = svc.Commit(plan); err == nil {
+		t.Fatal("expected the second day to fail")
+	}
+
+	if len(repo.inserted) != 3 {
+		t.Fatalf("expected the first day to be committed, got %d rows", len(repo.inserted))
+	}
+
+	if repo.renamed != "" {
+		t.Fatal("a failed commit must keep the staging tables")
+	}
+
+	repo.failCommitAt = 0
+	plan, err = svc.CommitPlan()
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	if plan.Eligible != 1 {
+		t.Fatalf("expected the unfinished day to still be eligible, got %d rows", plan.Eligible)
+	}
+
+	if _, err = svc.Commit(plan); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	if len(repo.inserted) != 4 {
+		t.Fatalf("expected all 4 rows after the resume, got %d", len(repo.inserted))
+	}
+
+	seen := make(map[string]bool)
+	for _, row := range repo.inserted {
+		key := fmt.Sprintf("%s|%s", row.MarketID, row.ExecutedAt)
+		if seen[key] {
+			t.Fatalf("row %s was inserted twice", key)
+		}
+		seen[key] = true
+	}
+
+	for _, row := range repo.staged {
+		// id 4 is the row the listener already had - it stays uncommitted
+		if row.ID != 4 && !row.Committed {
+			t.Fatalf("staged row %d was never committed", row.ID)
+		}
 	}
 }
 

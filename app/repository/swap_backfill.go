@@ -357,15 +357,38 @@ func (r *SwapBackfillRepository) CommitChunk(rows []*entity.MarketHistory, inter
 
 // GetPoolsOldestSwap returns, for every known liquidity pool, the oldest swap
 // still held in market_history. A NULL means the pool has no history at all.
-// This is the boundary the operator needs (`init`) and the overlap guard the
-// commit uses: everything the listener already ingested is at or after it.
-func (r *SwapBackfillRepository) GetPoolsOldestSwap() ([]entity.PoolOldestSwap, error) {
-	query := `
+// This is both the boundary the operator needs (`init`) and the overlap guard
+// the commit uses: everything the listener already ingested is at or after it.
+//
+// excludeBackfilled leaves out the rows this back-fill has already committed,
+// which is what the overlap guard has to ask. The guard means "the oldest swap
+// the listener ingested", and a commit inserts rows older than that: read
+// plainly on a resumed commit, market_history would report the back-fill's own
+// first row as the boundary and every day it had not committed yet would look
+// already-held and be dropped. Dating the markets wants the opposite - the
+// oldest row that is actually there, back-filled or not.
+func (r *SwapBackfillRepository) GetPoolsOldestSwap(excludeBackfilled bool) ([]entity.PoolOldestSwap, error) {
+	// a committed staged row and a listener row can never share a timestamp:
+	// the guard only ever lets us commit rows strictly older than the oldest
+	// row the listener holds, so matching on (market_id, executed_at) only
+	// takes out rows this back-fill inserted
+	var backfilled string
+	if excludeBackfilled {
+		backfilled = fmt.Sprintf(`
+			AND NOT EXISTS (
+				SELECT 1 FROM %s t
+				WHERE t.committed = 1
+					AND t.market_id = mh.market_id
+					AND t.executed_at = mh.executed_at
+			)`, StagedTable)
+	}
+
+	query := fmt.Sprintf(`
 		SELECT mld.market_id AS market_id, MIN(mh.executed_at) AS oldest_swap
 		FROM market_liquidity_data mld
-		LEFT JOIN market_history mh ON mh.market_id = mld.market_id
+		LEFT JOIN market_history mh ON mh.market_id = mld.market_id%s
 		GROUP BY mld.market_id
-		ORDER BY mld.market_id`
+		ORDER BY mld.market_id`, backfilled)
 
 	var results []entity.PoolOldestSwap
 	err := r.db.Select(&results, query)

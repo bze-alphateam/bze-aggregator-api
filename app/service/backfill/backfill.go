@@ -44,7 +44,7 @@ type backfillRepo interface {
 	GetStagedStats(marketId string, from, to *time.Time) (entity.StagedStats, error)
 	GetUncommittedBetween(from, to time.Time) ([]entity.StagedSwap, error)
 	CommitChunk(rows []*entity.MarketHistory, intervals []*entity.MarketHistoryInterval, stagedIds []int) error
-	GetPoolsOldestSwap() ([]entity.PoolOldestSwap, error)
+	GetPoolsOldestSwap(excludeBackfilled bool) ([]entity.PoolOldestSwap, error)
 }
 
 type marketRepo interface {
@@ -138,7 +138,7 @@ func (s *Service) InitStatus() (*InitStatus, error) {
 	}
 
 	result := &InitStatus{FloorHeight: FloorHeight}
-	pools, err := s.repo.GetPoolsOldestSwap()
+	pools, err := s.repo.GetPoolsOldestSwap(false)
 	if err != nil {
 		return nil, err
 	}

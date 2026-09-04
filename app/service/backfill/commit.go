@@ -291,7 +291,7 @@ func (s *Service) dateMarkets() ([]MarketDating, error) {
 		touched[marketId] = true
 	}
 
-	pools, err := s.repo.GetPoolsOldestSwap()
+	pools, err := s.repo.GetPoolsOldestSwap(false)
 	if err != nil {
 		return nil, err
 	}
@@ -314,12 +314,17 @@ func (s *Service) dateMarkets() ([]MarketDating, error) {
 	return dated, nil
 }
 
-// liveFloors is the oldest swap already held per pool - the overlap guard.
-// market_history is the right yardstick here: it is our own durable data, while
-// the Postgres block index is pruned by the cleanup cron and would understate
-// what has been ingested.
+// liveFloors is the oldest swap the listener already ingested per pool - the
+// overlap guard. market_history is the right yardstick here: it is our own
+// durable data, while the Postgres block index is pruned by the cleanup cron
+// and would understate what has been ingested.
+//
+// Rows this back-fill committed are left out. They are older than the floor by
+// construction, so counting them would move the guard back onto our own work:
+// a commit resumed after an interrupted day would then treat every day it had
+// not reached yet as already-held and silently drop it.
 func (s *Service) liveFloors() (map[string]time.Time, error) {
-	pools, err := s.repo.GetPoolsOldestSwap()
+	pools, err := s.repo.GetPoolsOldestSwap(true)
 	if err != nil {
 		return nil, err
 	}
