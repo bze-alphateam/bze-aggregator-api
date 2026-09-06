@@ -282,17 +282,16 @@ func TestAddOrderAveragePriceSkipsTheDivisionWhileHighEqualsLow(t *testing.T) {
 	assertDec(t, "quote volume", i.QuoteVolume, "30")
 }
 
-// TestAddOrderWithIdenticalTimestampsKeepsTheFirstTradeAsClose pins current
-// behaviour.
+// TestAddOrderWithIdenticalTimestampsKeepsTheFirstTradeAsClose pins a known,
+// accepted limitation (BZE-135, won't fix).
 //
-// BUG: trades that share an executed_at - which is every trade filled in the
-// same block, the normal case for an order book - are compared with strict
-// After/Before, so neither the open nor the close price ever moves off the
-// FIRST trade handed over. The candle's close is therefore whichever row the
-// history query returned first, and that query orders by executed_at only, with
-// no tie breaker, so the close price of a busy block is effectively arbitrary.
-// Volumes and high/low are unaffected. Fixing it needs a tie-break rule (id
-// order) rather than a one-line change, so it is filed as BZE-135.
+// Trades that share an executed_at - every fill in the same block, the normal
+// case for an order book - are compared with strict After/Before, so neither
+// the open nor the close price moves off the FIRST trade handed over. The
+// chain does not record the execution order inside a block and the history
+// query has no tie breaker, so there is nothing to order them by: any rule
+// would be a convention, not a fix. Volumes and high/low are unaffected, and
+// the error is bounded by the price spread within a single block.
 func TestAddOrderWithIdenticalTimestampsKeepsTheFirstTradeAsClose(t *testing.T) {
 	i := NewInterval(time.Unix(0, 0), time.Unix(300, 0), fiveMinutes)
 
@@ -307,16 +306,15 @@ func TestAddOrderWithIdenticalTimestampsKeepsTheFirstTradeAsClose(t *testing.T) 
 	assertDec(t, "quote volume", i.QuoteVolume, "30")
 }
 
-// TestAddOrderDiscardsTheVolumeOfALeadingZeroPricedTrade pins current behaviour.
+// TestAddOrderDiscardsTheVolumeOfALeadingZeroPricedTrade pins a known,
+// accepted limitation (BZE-136, won't fix).
 //
-// BUG: AveragePrice being zero is used as the "this is the first trade" flag.
-// A trade priced at zero leaves it zero, so the NEXT trade takes the first-trade
-// branch again and OVERWRITES the volumes instead of adding to them - the zero
-// priced trade's base volume silently disappears from the candle. The same guard
-// on LowestPrice drops the zero from the low. Zero prices are reachable today
-// (see BZE-133), which is what makes this more than theoretical. The fix is a
-// real restructure - an explicit trade counter instead of the zero probes - so
-// it is filed as BZE-136 rather than patched here.
+// AveragePrice being zero is used as the "this is the first trade" flag. A
+// trade priced at zero leaves it zero, so the NEXT trade takes the first-trade
+// branch again and OVERWRITES the volumes instead of adding to them, and the
+// same guard on LowestPrice drops the zero from the low. The order book cannot
+// produce a zero price and the only path that could (BZE-133) is being fixed,
+// so this is left as is rather than restructured.
 func TestAddOrderDiscardsTheVolumeOfALeadingZeroPricedTrade(t *testing.T) {
 	i := NewInterval(time.Unix(0, 0), time.Unix(300, 0), fiveMinutes)
 
@@ -335,13 +333,13 @@ func TestAddOrderDiscardsTheVolumeOfALeadingZeroPricedTrade(t *testing.T) {
 	assertDec(t, "open", i.OpenPrice, "0")
 }
 
-// TestAddOrderPanicsWhenTheTotalBaseVolumeIsZero pins current behaviour.
+// TestAddOrderPanicsWhenTheTotalBaseVolumeIsZero pins a known, accepted
+// limitation (BZE-136, won't fix).
 //
-// BUG: with high != low the average is quote volume / base volume, and the
-// division is not guarded. Dust trades really do store an amount of "0" - the
-// converter trims a fully rounded-away amount down to it - so two zero-amount
-// trades at different prices crash candle building for the whole market. Same
-// root cause and same ticket as the volume loss above (BZE-136).
+// With high != low the average is quote volume / base volume, and the division
+// is not guarded. It cannot be reached with real data: the chain never records
+// a zero fill and the swap converter rejects a zero base amount, so a positive
+// amount always survives the unit conversion as a non-zero string.
 func TestAddOrderPanicsWhenTheTotalBaseVolumeIsZero(t *testing.T) {
 	defer func() {
 		if recover() == nil {
