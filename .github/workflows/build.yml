@@ -1,9 +1,24 @@
 name: build
 
-# PR sanity check: the code must compile and the unit tests must pass.
+# Compile + static-analysis + unit-test gate.
+#
+# Runs on:
+#   - pull_request      — every PR, before it can be merged (job id `build` is the
+#                         required status check on `main`).
+#   - push to main      — re-runs the same checks on the merge result, so a bad
+#                         merge or an out-of-date branch is caught even when the
+#                         individual PR was green.
+#   - workflow_dispatch — manual re-run from the Actions tab.
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
+
+# Supersede stale PR runs; never cancel a run for a commit already on main.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -14,7 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
+        # Caches the module and build caches keyed on go.sum by default —
+        # do not add a separate actions/cache step.
         with:
           go-version-file: go.mod
       - run: go build ./...
-      - run: go test ./...
+      - run: go vet ./...
+      - run: go test ./... -race -count=1
