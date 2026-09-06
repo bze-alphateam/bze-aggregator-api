@@ -41,8 +41,14 @@ func UAmountToAmount(asset *chain_registry.ChainRegistryAsset, amount string) (s
 		return "", fmt.Errorf("no display denom for asset")
 	}
 
-	amtInt, _ := math2.NewIntFromString(amount)
-	decAmount := math2.LegacyNewDecWithPrec(amtInt.Int64(), int64(displayDenomUnit.Exponent))
+	amtInt, ok := math2.NewIntFromString(amount)
+	if !ok {
+		return "", fmt.Errorf("invalid amount: %s", amount)
+	}
+
+	// from the Int directly: amounts above the int64 range are common for
+	// 18-decimal assets and must not be truncated
+	decAmount := math2.LegacyNewDecFromIntWithPrec(amtInt, int64(displayDenomUnit.Exponent))
 
 	return TrimAmountTrailingZeros(decAmount.String()), nil
 }
