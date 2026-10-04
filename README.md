@@ -21,6 +21,12 @@ BLOCKCHAIN_RPC_HOST=https://testnet-rpc.getbze.com
 BLOCKCHAIN_REST_HOST=https://testnet.getbze.com
 ```
 
+`MYSQL_DSN` must carry `parseTime=true` and `timeTruncate=1us`, e.g.
+`user:password@tcp(127.0.0.1:3306)/dbname?parseTime=true&timeTruncate=1us`.
+Without `timeTruncate` the driver sends time parameters with nanosecond
+precision and MariaDB cannot use an index range on them, which makes
+`/api/dex/tickers` and `/api/dex/intervals` scan far more rows than needed.
+
 ### Endpoints
 1. `Health` - endpoint to check if a market is healthy (has active trades) in the last X minutes  
 `/api/health/market?market_id={market_id}&minutes={minutes}`
