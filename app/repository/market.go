@@ -11,8 +11,7 @@ import (
 )
 
 type MarketRepository struct {
-	db  internal.Database
-	now func() time.Time
+	db internal.Database
 }
 
 func NewMarketRepository(db internal.Database) (*MarketRepository, error) {
@@ -20,7 +19,7 @@ func NewMarketRepository(db internal.Database) (*MarketRepository, error) {
 		return nil, internal.NewInvalidDependenciesErr("NewMarketRepository")
 	}
 
-	return &MarketRepository{db: db, now: time.Now}, nil
+	return &MarketRepository{db: db}, nil
 }
 
 func (r *MarketRepository) GetMarket(marketId string) (*entity.Market, error) {
@@ -115,8 +114,7 @@ func (r *MarketRepository) GetMarketsWithLastExecuted(hours int) ([]entity.Marke
 		) mh ON mh.market_id = m.market_id AND mh.rn = 1
 		ORDER BY m.id ASC;
 `
-	// sqlTime: an untruncated time.Now() makes MariaDB skip idx_mh_executed
-	executedAt := sqlTime(r.now().Add(-time.Hour * time.Duration(hours)))
+	executedAt := time.Now().Add(-time.Hour * time.Duration(hours))
 	var results []entity.MarketWithLastPrice
 	err := r.db.Select(&results, query, executedAt)
 	if err == nil {
