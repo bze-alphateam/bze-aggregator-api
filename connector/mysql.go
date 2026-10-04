@@ -27,8 +27,8 @@ func NewDatabaseConnection() (*sqlx.DB, error) {
 
 	db.SetMaxOpenConns(100)
 	db.SetMaxIdleConns(50)
-	db.SetConnMaxLifetime(time.Second * 5)
-	db.SetConnMaxIdleTime(time.Second * 5)
+	db.SetConnMaxLifetime(time.Minute * 5)
+	db.SetConnMaxIdleTime(time.Minute)
 
 	if err = db.Ping(); nil != err {
 		return nil, err

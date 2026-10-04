@@ -64,7 +64,9 @@ func (r *MarketIntervalRepository) GetIntervalsByExecutedAt(marketId string, exe
 	`
 
 	var results []entity.MarketHistoryInterval
-	err := r.db.Select(&results, q, marketId, length, executedAt)
+	// sqlTime: callers pass time.Now()-derived values, which make MariaDB skip
+	// uq_mhi_market_length_start when bound with nanosecond precision
+	err := r.db.Select(&results, q, marketId, length, sqlTime(executedAt))
 	if err == nil {
 		return results, nil
 	}
@@ -142,7 +144,8 @@ func (r *MarketIntervalRepository) intervalsByRows(params *query.IntervalsParams
 
 	if !params.StartAt.Equal(time.Time{}) {
 		q = fmt.Sprintf("%s AND mhi.start_at >= ?", q)
-		args = append(args, params.StartAt)
+		// sqlTime: StartAt is time.Now()-derived when a limit is requested
+		args = append(args, sqlTime(params.StartAt))
 	}
 
 	q = fmt.Sprintf("%s ORDER BY start_at DESC", q)
