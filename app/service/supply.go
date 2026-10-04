@@ -2,6 +2,8 @@ package service
 
 import (
 	"fmt"
+
+	sdkmath "cosmossdk.io/math"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/chain_registry"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/sirupsen/logrus"
@@ -15,6 +17,12 @@ const (
 	circulatingSupplyCacheKey = "supply:circulating_supply"
 
 	cacheExpireSeconds = 600
+
+	// maxDisplayExponent is the highest display exponent a supply is formatted
+	// with. Assets use 6, 12 (LP tokens) or 18; the exponent of an asset that is
+	// not in the chain registry is read from its on-chain metadata, so it is
+	// checked before use.
+	maxDisplayExponent = 18
 )
 
 type chainRegistry interface {
@@ -22,7 +30,7 @@ type chainRegistry interface {
 }
 
 type RestDataProvider interface {
-	GetTotalSupply(denom string) (int64, error)
+	GetTotalSupply(denom string) (sdkmath.Int, error)
 	GetCommunityPoolTotal(denom string) (float64, error)
 }
 
@@ -74,8 +82,7 @@ func (s *Supply) GetTotalSupply(denom string) (string, error) {
 		return "0", nil
 	}
 
-	totalSupply := float64(uTotalSupply) / math.Pow(10, float64(display.Exponent))
-	supplyStr := fmt.Sprintf("%.2f", totalSupply)
+	supplyStr := formatDisplayAmount(uTotalSupply, display.Exponent)
 
 	err = s.cache.Set(cacheKey, []byte(supplyStr), time.Duration(cacheExpireSeconds)*time.Second)
 	if err != nil {
@@ -151,6 +158,12 @@ func (s *Supply) getDisplayDenom(denom string) (*chain_registry.ChainRegistryAss
 		return nil, fmt.Errorf("%s has no display denomination", denom)
 	}
 
+	if display.Exponent < 0 || display.Exponent > maxDisplayExponent {
+		s.logger.Errorf("unexpected display exponent %d for denom %s (expected 0 to %d)", display.Exponent, denom, maxDisplayExponent)
+
+		return nil, fmt.Errorf("%s has an unsupported display exponent", denom)
+	}
+
 	return display, nil
 }
 
@@ -162,5 +175,22 @@ func (s *Supply) GetUTotalSupply(denom string) (string, error) {
 		return "0", err
 	}
 
-	return fmt.Sprintf("%d", uTotalSupply), nil
+	return uTotalSupply.String(), nil
+}
+
+// formatDisplayAmount converts a base-unit amount to its display unit and
+// formats it with exactly 2 decimals, rounding half up. Integer arithmetic
+// keeps it exact for any size (LegacyDec.RoundInt would round half to even).
+// The exponent must already be within [0, maxDisplayExponent] (getDisplayDenom).
+func formatDisplayAmount(amount sdkmath.Int, exponent int) string {
+	divisor := sdkmath.NewIntWithDecimal(1, exponent)
+	scaled := amount.MulRaw(100)
+	cents := scaled.Quo(divisor)
+	if scaled.Mod(divisor).MulRaw(2).GTE(divisor) {
+		cents = cents.AddRaw(1)
+	}
+
+	hundred := sdkmath.NewInt(100)
+
+	return fmt.Sprintf("%s.%02d", cents.Quo(hundred).String(), cents.Mod(hundred).Int64())
 }
