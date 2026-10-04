@@ -2,7 +2,9 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"testing"
 	"time"
 
@@ -24,9 +26,14 @@ func (f *fakeCache) Set(key string, data []byte, _ time.Duration) error {
 type fakeRestDataProvider struct {
 	supply sdkmath.Int
 	err    error
+	calls  int
 }
 
-func (f *fakeRestDataProvider) GetTotalSupply(string) (sdkmath.Int, error) { return f.supply, f.err }
+func (f *fakeRestDataProvider) GetTotalSupply(string) (sdkmath.Int, error) {
+	f.calls++
+
+	return f.supply, f.err
+}
 func (f *fakeRestDataProvider) GetCommunityPoolTotal(string) (float64, error) {
 	return 0, nil
 }
@@ -78,6 +85,7 @@ func TestSupply_GetTotalSupply(t *testing.T) {
 		{"exponent zero", "12345", 0, "12345.00"},
 		{"exponent one", "12345", 1, "1234.50"},
 		{"LP exponent", "1836008062350109703", 12, "1836008.06"},
+		{"highest accepted exponent", "1500000000000000000", maxDisplayExponent, "1.50"},
 		// exact ties round half up (float64 + %.2f gave 1.00 and 2.67)
 		{"tie 1.005", "1005000", 6, "1.01"},
 		{"tie 2.675", "2675000", 6, "2.68"},
@@ -106,6 +114,26 @@ func TestSupply_GetTotalSupply_ProviderError(t *testing.T) {
 	got, err := s.GetTotalSupply("ufoo")
 	if err != nil || got != "0" {
 		t.Fatalf("expected \"0\" and no error, got %q, %v", got, err)
+	}
+}
+
+func TestSupply_RejectsUnexpectedDisplayExponent(t *testing.T) {
+	for _, exponent := range []int{-1, maxDisplayExponent + 1, 78, math.MaxInt32} {
+		t.Run(fmt.Sprintf("exponent %d", exponent), func(t *testing.T) {
+			s := newTestSupply(t, "1000000", exponent)
+			provider := &fakeRestDataProvider{supply: sdkmath.NewInt(1000000)}
+			s.dataProvider = provider
+
+			if got, err := s.GetTotalSupply("ufoo"); err == nil {
+				t.Fatalf("GetTotalSupply: expected an error, got %q", got)
+			}
+			if got, err := s.GetCirculatingSupply("ufoo"); err == nil {
+				t.Fatalf("GetCirculatingSupply: expected an error, got %q", got)
+			}
+			if provider.calls != 0 {
+				t.Fatalf("expected no data provider calls, got %d", provider.calls)
+			}
+		})
 	}
 }
 

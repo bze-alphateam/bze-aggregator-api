@@ -17,6 +17,12 @@ const (
 	circulatingSupplyCacheKey = "supply:circulating_supply"
 
 	cacheExpireSeconds = 600
+
+	// maxDisplayExponent is the highest display exponent a supply is formatted
+	// with. Assets use 6, 12 (LP tokens) or 18; the exponent of an asset that is
+	// not in the chain registry is read from its on-chain metadata, so it is
+	// checked before use.
+	maxDisplayExponent = 18
 )
 
 type chainRegistry interface {
@@ -152,6 +158,12 @@ func (s *Supply) getDisplayDenom(denom string) (*chain_registry.ChainRegistryAss
 		return nil, fmt.Errorf("%s has no display denomination", denom)
 	}
 
+	if display.Exponent < 0 || display.Exponent > maxDisplayExponent {
+		s.logger.Errorf("unexpected display exponent %d for denom %s (expected 0 to %d)", display.Exponent, denom, maxDisplayExponent)
+
+		return nil, fmt.Errorf("%s has an unsupported display exponent", denom)
+	}
+
 	return display, nil
 }
 
@@ -169,6 +181,7 @@ func (s *Supply) GetUTotalSupply(denom string) (string, error) {
 // formatDisplayAmount converts a base-unit amount to its display unit and
 // formats it with exactly 2 decimals, rounding half up. Integer arithmetic
 // keeps it exact for any size (LegacyDec.RoundInt would round half to even).
+// The exponent must already be within [0, maxDisplayExponent] (getDisplayDenom).
 func formatDisplayAmount(amount sdkmath.Int, exponent int) string {
 	divisor := sdkmath.NewIntWithDecimal(1, exponent)
 	scaled := amount.MulRaw(100)
