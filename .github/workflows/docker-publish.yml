@@ -10,7 +10,6 @@ on:
 permissions:
   contents: read
   packages: write
-  pull-requests: write   # comment the release command on the merged PR
 
 concurrency:
   group: docker-publish
@@ -47,38 +46,3 @@ jobs:
 
       - name: Summary
         run: echo "Pushed ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
-
-      # Runs only after the push succeeded, so the comment doubles as the
-      # "image is ready" signal. This app is DB-backed: releases are MANUAL
-      # (no auto-release cron). Direct pushes to main have no PR — skipped.
-      - name: Comment release command on the merged PR
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.vars.outputs.sha }}
-          BEFORE: ${{ github.event.before }}
-        run: |
-          pr=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '.[0].number')
-          if [ -n "$pr" ] && [ "$pr" != "null" ]; then
-            # fenced blocks (not inline code) so GitHub renders a copy button
-            body="📦 Image published: \`ghcr.io/${{ github.repository }}:${TAG}\`
-
-          Deploy (manual — DB-backed app):
-          \`\`\`bash
-          ./release.sh ${TAG}
-          \`\`\`"
-            # previous main head = the previous build's tag; the usual rollback
-            # target, but releases.log on the server is what's actually live
-            prev=$(echo "$BEFORE" | cut -c1-8)
-            if [ -n "$prev" ] && [ "$prev" != "00000000" ]; then
-              body="$body
-
-          Rollback (previous build):
-          \`\`\`bash
-          ./release.sh ${prev}
-          \`\`\`"
-            fi
-            gh pr comment "$pr" -R "${{ github.repository }}" --body "$body"
-          else
-            echo "no PR associated with ${{ github.sha }}, skipping comment"
-          fi
