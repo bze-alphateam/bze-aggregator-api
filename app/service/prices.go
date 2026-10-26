@@ -327,6 +327,12 @@ func (p *PricesService) calculateLpPrice(lpDenom string) (float64, error) {
 		return 0.0, err
 	}
 
+	// An emptied pool has no LP shares left: it has no price, and dividing by
+	// the zero supply below would panic.
+	if !lpTotalSupply.IsPositive() {
+		return 0.0, nil
+	}
+
 	// Calculate total value in pool
 	// baseValueUSD = basePrice * (reserveBase / 10^baseDecimals)
 	// quoteValueUSD = quotePrice * (reserveQuote / 10^quoteDecimals)
@@ -435,6 +441,12 @@ func (p *PricesService) calculatePoolPrice(baseDenom string, liquidityData *enti
 	reserveQuote, err := sdkmath.LegacyNewDecFromStr(liquidityData.ReserveQuote)
 	if err != nil {
 		return 0.0, err
+	}
+
+	// An emptied pool (all liquidity removed) has no price, and dividing by a
+	// zero reserve below would panic.
+	if !reserveBase.IsPositive() || !reserveQuote.IsPositive() {
+		return 0.0, nil
 	}
 
 	// Calculate raw price (price of base in terms of quote)
