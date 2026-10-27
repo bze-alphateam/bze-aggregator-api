@@ -311,17 +311,22 @@ func (c *ControllerFactory) GetDexController() (*controller.Dex, error) {
 		return nil, fmt.Errorf("could not instantiate prices service: %w", err)
 	}
 
-	tickers, err := dex.NewTickersService(c.logger, mRepo, iRepo, oRepo, pricesService, liquidityRepo, supplyService)
+	cgMerges, err := dex.NewCoingeckoMerges(c.config.Coingecko.MergedMarkets)
+	if err != nil {
+		return nil, fmt.Errorf("invalid COINGECKO_MERGED_MARKETS: %w", err)
+	}
+
+	tickers, err := dex.NewTickersService(c.logger, mRepo, iRepo, oRepo, pricesService, liquidityRepo, supplyService, cgMerges)
 	if err != nil {
 		return nil, err
 	}
 
-	orders, err := dex.NewOrdersService(c.logger, oRepo, mRepo)
+	orders, err := dex.NewOrdersService(c.logger, oRepo, mRepo, cgMerges)
 	if err != nil {
 		return nil, err
 	}
 
-	history, err := dex.NewHistoryService(c.logger, hRepo)
+	history, err := dex.NewHistoryService(c.logger, hRepo, cgMerges)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +350,7 @@ func (c *ControllerFactory) GetSwapController() (*controller.SwapController, err
 		return nil, err
 	}
 
-	history, err := dex.NewHistoryService(c.logger, hRepo)
+	history, err := dex.NewHistoryService(c.logger, hRepo, nil)
 	if err != nil {
 		return nil, err
 	}

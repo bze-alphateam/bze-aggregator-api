@@ -68,6 +68,7 @@ type Tickers struct {
 	priceCalc     priceCalculator
 	liquidityRepo liquidityDataRepo
 	supplyService supplyService
+	cgMerges      CoingeckoMerges
 }
 
 func NewTickersService(
@@ -78,6 +79,7 @@ func NewTickersService(
 	priceCalc priceCalculator,
 	liquidityRepo liquidityDataRepo,
 	supplyService supplyService,
+	cgMerges CoingeckoMerges,
 ) (*Tickers, error) {
 	if logger == nil || mRepo == nil || iRepo == nil || oRepo == nil ||
 		priceCalc == nil || liquidityRepo == nil || supplyService == nil {
@@ -92,9 +94,13 @@ func NewTickersService(
 		priceCalc:     priceCalc,
 		liquidityRepo: liquidityRepo,
 		supplyService: supplyService,
+		cgMerges:      cgMerges,
 	}, nil
 }
 
+// GetCoingeckoTickers returns the coingecko tickers in market order. A market
+// folded into another one (see CoingeckoMerges) is not listed: its figures are
+// added to the ticker of the market it is folded into.
 func (t *Tickers) GetCoingeckoTickers() ([]*response.CoingeckoTicker, error) {
 	markets, err := t.mRepo.GetMarketsWithLastExecuted(tickersHours)
 	if err != nil {
@@ -105,24 +111,42 @@ func (t *Tickers) GetCoingeckoTickers() ([]*response.CoingeckoTicker, error) {
 	wg := &sync.WaitGroup{}
 
 	var gErr error
-	var tickers []*response.CoingeckoTicker
+	built := make(map[string]*response.CoingeckoTicker, len(markets))
 	for _, market := range markets {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ti := response.CoingeckoTicker{}
-			err = t.buildTicker(market, &ti)
-			if err != nil {
-				gErr = err
-			}
+			ti := &response.CoingeckoTicker{}
+			bErr := t.buildTicker(market, ti)
 
 			mux.Lock()
 			defer mux.Unlock()
-			tickers = append(tickers, &ti)
+			if bErr != nil {
+				gErr = bErr
+			}
+			built[market.MarketID] = ti
 		}()
 	}
 
 	wg.Wait()
+
+	var tickers []*response.CoingeckoTicker
+	for _, market := range markets {
+		if reported, ok := t.cgMerges[market.MarketID]; ok {
+			if _, listed := built[reported]; listed {
+				continue
+			}
+		}
+
+		ti := built[market.MarketID]
+		for _, folded := range t.cgMerges.foldedInto(market.MarketID) {
+			if other, ok := built[folded]; ok {
+				ti.Fold(other)
+			}
+		}
+
+		tickers = append(tickers, ti)
+	}
 
 	return tickers, gErr
 }
@@ -143,13 +167,13 @@ func (t *Tickers) GetTickers() ([]*response.Ticker, error) {
 		go func() {
 			defer wg.Done()
 			ti := response.Ticker{}
-			err = t.buildTicker(market, &ti)
-			if err != nil {
-				gErr = err
-			}
+			bErr := t.buildTicker(market, &ti)
 
 			mux.Lock()
 			defer mux.Unlock()
+			if bErr != nil {
+				gErr = bErr
+			}
 			tickers = append(tickers, &ti)
 		}()
 	}

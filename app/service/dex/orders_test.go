@@ -51,7 +51,7 @@ func (f *fakeOrdersRepo) limitFor(orderType string) int {
 
 func newTestOrdersService(t *testing.T, oRepo *fakeOrdersRepo, mRepo *fakeMarketRepo) *OrdersService {
 	t.Helper()
-	svc, err := NewOrdersService(newTestLogger(), oRepo, mRepo)
+	svc, err := NewOrdersService(newTestLogger(), oRepo, mRepo, nil)
 	if err != nil {
 		t.Fatalf("NewOrdersService: unexpected error: %v", err)
 	}
@@ -64,14 +64,14 @@ func TestNewOrdersServiceRejectsNilDependencies(t *testing.T) {
 	oRepo := &fakeOrdersRepo{}
 	mRepo := &fakeMarketRepo{}
 
-	if svc, err := NewOrdersService(logger, oRepo, mRepo); err != nil || svc == nil {
+	if svc, err := NewOrdersService(logger, oRepo, mRepo, nil); err != nil || svc == nil {
 		t.Fatalf("valid dependencies: got svc=%v err=%v", svc, err)
 	}
 
 	cases := map[string]func() (*OrdersService, error){
-		"nil logger":     func() (*OrdersService, error) { return NewOrdersService(nil, oRepo, mRepo) },
-		"nil ordersRepo": func() (*OrdersService, error) { return NewOrdersService(logger, nil, mRepo) },
-		"nil marketRepo": func() (*OrdersService, error) { return NewOrdersService(logger, oRepo, nil) },
+		"nil logger":     func() (*OrdersService, error) { return NewOrdersService(nil, oRepo, mRepo, nil) },
+		"nil ordersRepo": func() (*OrdersService, error) { return NewOrdersService(logger, nil, mRepo, nil) },
+		"nil marketRepo": func() (*OrdersService, error) { return NewOrdersService(logger, oRepo, nil, nil) },
 	}
 	for name, build := range cases {
 		t.Run(name, func(t *testing.T) {

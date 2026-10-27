@@ -1,7 +1,9 @@
 package dex
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/request"
 	"github.com/bze-alphateam/bze-aggregator-api/app/dto/response"
@@ -20,9 +22,10 @@ type historyRepo interface {
 type HistoryService struct {
 	logger      logrus.FieldLogger
 	historyRepo historyRepo
+	cgMerges    CoingeckoMerges
 }
 
-func NewHistoryService(logger logrus.FieldLogger, historyRepo historyRepo) (*HistoryService, error) {
+func NewHistoryService(logger logrus.FieldLogger, historyRepo historyRepo, cgMerges CoingeckoMerges) (*HistoryService, error) {
 	if logger == nil || historyRepo == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewHistoryService")
 	}
@@ -30,11 +33,12 @@ func NewHistoryService(logger logrus.FieldLogger, historyRepo historyRepo) (*His
 	return &HistoryService{
 		logger:      logger.WithField("service", "Dex.HistoryService"),
 		historyRepo: historyRepo,
+		cgMerges:    cgMerges,
 	}, nil
 }
 
 func (h *HistoryService) GetHistory(params *request.HistoryParams) ([]response.HistoryTrade, error) {
-	hist, err := h.historyRepo.GetHistoryBy(*params)
+	hist, err := h.historyRepo.GetHistoryBy(withMarketId(params))
 	if err != nil {
 		return nil, err
 	}
@@ -58,10 +62,41 @@ func (h *HistoryService) GetHistory(params *request.HistoryParams) ([]response.H
 	return result, nil
 }
 
+// GetCoingeckoHistory returns a market's trades split by side. For a market
+// other markets are folded into (see CoingeckoMerges), the trades of all of
+// them, newest first and cut to the limit. Trade ids are the history row ids,
+// unique across markets.
 func (h *HistoryService) GetCoingeckoHistory(params *request.HistoryParams) (*response.CoingeckoHistory, error) {
-	hist, err := h.historyRepo.GetHistoryBy(*params)
+	p := withMarketId(params)
+	hist, err := h.historyRepo.GetHistoryBy(p)
 	if err != nil {
 		return nil, err
+	}
+
+	folded := h.cgMerges.foldedInto(p.MarketId)
+	for _, marketId := range folded {
+		fp := p
+		fp.MarketId = marketId
+		fHist, err := h.historyRepo.GetHistoryBy(fp)
+		if err != nil {
+			return nil, err
+		}
+
+		hist = append(hist, fHist...)
+	}
+
+	if len(folded) > 0 {
+		slices.SortStableFunc(hist, func(a, b entity.MarketHistory) int {
+			if c := b.ExecutedAt.Compare(a.ExecutedAt); c != 0 {
+				return c
+			}
+
+			return cmp.Compare(b.ID, a.ID)
+		})
+
+		if p.Limit > 0 && len(hist) > p.Limit {
+			hist = hist[:p.Limit]
+		}
 	}
 
 	result := response.CoingeckoHistory{}
@@ -117,4 +152,14 @@ func (h *HistoryService) GetAddressSwapHistory(address string) ([]response.Histo
 	}
 
 	return result, nil
+}
+
+// withMarketId returns a copy of params whose market id is resolved from the
+// ticker id when only that was given, so a ticker_id request is filtered by
+// its market instead of returning every market's trades.
+func withMarketId(params *request.HistoryParams) request.HistoryParams {
+	p := *params
+	p.MarketId = params.MustGetMarketId()
+
+	return p
 }
