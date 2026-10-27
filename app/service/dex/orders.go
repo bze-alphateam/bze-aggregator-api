@@ -25,20 +25,22 @@ type ordersMarketRepo interface {
 }
 
 type OrdersService struct {
-	logger logrus.FieldLogger
-	oRepo  ordersRepo
-	mRepo  ordersMarketRepo
+	logger   logrus.FieldLogger
+	oRepo    ordersRepo
+	mRepo    ordersMarketRepo
+	cgMerges CoingeckoMerges
 }
 
-func NewOrdersService(logger logrus.FieldLogger, oRepo ordersRepo, mRepo ordersMarketRepo) (*OrdersService, error) {
+func NewOrdersService(logger logrus.FieldLogger, oRepo ordersRepo, mRepo ordersMarketRepo, cgMerges CoingeckoMerges) (*OrdersService, error) {
 	if logger == nil || oRepo == nil || mRepo == nil {
 		return nil, internal.NewInvalidDependenciesErr("NewOrdersService")
 	}
 
 	return &OrdersService{
-		logger: logger.WithField("service", "Dex.OrdersService"),
-		oRepo:  oRepo,
-		mRepo:  mRepo,
+		logger:   logger.WithField("service", "Dex.OrdersService"),
+		oRepo:    oRepo,
+		mRepo:    mRepo,
+		cgMerges: cgMerges,
 	}, nil
 }
 
@@ -67,6 +69,11 @@ func (o *OrdersService) GetMarketOrders(marketId string, depth int) (*response.O
 	return res, nil
 }
 
+// GetCoingeckoMarketOrders returns a market's book under its ticker id. For a
+// market other markets are folded into (see CoingeckoMerges), it is the book of
+// the first folded market that has orders, so the depth matches the reported
+// volume; the market's own book only when none has any. Books are not mixed,
+// a mixed one could cross.
 func (o *OrdersService) GetCoingeckoMarketOrders(marketId string, depth int) (*response.CoingeckoOrders, error) {
 	market, err := o.mRepo.GetMarket(marketId)
 	if err != nil {
@@ -77,9 +84,23 @@ func (o *OrdersService) GetCoingeckoMarketOrders(marketId string, depth int) (*r
 		return nil, fmt.Errorf("market not found")
 	}
 
-	buys, sells, err := o.getMarketOrders(marketId, depth)
-	if err != nil {
-		return nil, err
+	var buys, sells []entity.MarketOrder
+	for _, folded := range o.cgMerges.foldedInto(marketId) {
+		buys, sells, err = o.getMarketOrders(folded, depth)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(buys) > 0 || len(sells) > 0 {
+			break
+		}
+	}
+
+	if len(buys) == 0 && len(sells) == 0 {
+		buys, sells, err = o.getMarketOrders(marketId, depth)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	res := &response.CoingeckoOrders{

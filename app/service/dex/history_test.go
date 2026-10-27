@@ -30,7 +30,7 @@ func (f *fakeHistoryRepo) GetAddressSwapHistory(address string) ([]entity.Market
 
 func newTestHistoryService(t *testing.T, repo *fakeHistoryRepo) *HistoryService {
 	t.Helper()
-	svc, err := NewHistoryService(newTestLogger(), repo)
+	svc, err := NewHistoryService(newTestLogger(), repo, nil)
 	if err != nil {
 		t.Fatalf("NewHistoryService: unexpected error: %v", err)
 	}
@@ -42,13 +42,13 @@ func TestNewHistoryServiceRejectsNilDependencies(t *testing.T) {
 	logger := newTestLogger()
 	repo := &fakeHistoryRepo{}
 
-	if svc, err := NewHistoryService(logger, repo); err != nil || svc == nil {
+	if svc, err := NewHistoryService(logger, repo, nil); err != nil || svc == nil {
 		t.Fatalf("valid dependencies: got svc=%v err=%v", svc, err)
 	}
 
 	cases := map[string]func() (*HistoryService, error){
-		"nil logger":      func() (*HistoryService, error) { return NewHistoryService(nil, repo) },
-		"nil historyRepo": func() (*HistoryService, error) { return NewHistoryService(logger, nil) },
+		"nil logger":      func() (*HistoryService, error) { return NewHistoryService(nil, repo, nil) },
+		"nil historyRepo": func() (*HistoryService, error) { return NewHistoryService(logger, nil, nil) },
 	}
 	for name, build := range cases {
 		t.Run(name, func(t *testing.T) {

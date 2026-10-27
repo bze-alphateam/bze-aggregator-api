@@ -71,6 +71,34 @@ func (c *CoingeckoTicker) SetLiquidityInUsd(liquidity float64) {
 	c.LiquidityInUsd = liquidity
 }
 
+// Fold adds another market's 24h figures to this ticker, which keeps its own
+// ids. Volumes and liquidity are summed and high/low span both markets. The
+// last price comes from the other market when it traded, and bid/ask (as a
+// pair, so the book cannot cross) when it has orders: it is the market that
+// replaced this one.
+func (c *CoingeckoTicker) Fold(other *CoingeckoTicker) {
+	c.BaseVolume += other.BaseVolume
+	c.QuoteVolume += other.QuoteVolume
+	c.LiquidityInUsd += other.LiquidityInUsd
+
+	if other.High > c.High {
+		c.High = other.High
+	}
+
+	if other.Low > 0 && (c.Low == 0 || other.Low < c.Low) {
+		c.Low = other.Low
+	}
+
+	if other.LastPrice > 0 {
+		c.LastPrice = other.LastPrice
+	}
+
+	if other.Bid > 0 || other.Ask > 0 {
+		c.Bid = other.Bid
+		c.Ask = other.Ask
+	}
+}
+
 type Ticker struct {
 	Base        string  `json:"base"`  // Symbol/Currency code/Contract Address of a the base cryptoasset, eg. BTC (Contract address for DEX)
 	Quote       string  `json:"quote"` //

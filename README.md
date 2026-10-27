@@ -107,6 +107,21 @@ Using `format=coingecko` query param would return the following response:
 ]
 ```  
 
+#### Merged markets (CoinGecko format only)
+
+`COINGECKO_MERGED_MARKETS` folds a market into one CoinGecko already tracks, e.g. when a market's
+quote asset is replaced (Noble USDC by Injective USDC). With `format=coingecko`:
+
+- `tickers`: the tracked ticker sums both markets' 24h volumes, spans their high/low and takes
+  `last_price` and `bid`/`ask` from the new market when it has them; the new market's ticker is
+  not listed, so the volume is counted once.
+- `orders` (`ticker_id` of the tracked market): the new market's book when it has orders, else the
+  tracked market's. Books are never mixed.
+- `history` (`ticker_id` of the tracked market): the trades of both markets, newest first, cut to
+  `limit`.
+
+The default format, and the data collection, keep every market separate.
+
 5. `DEX Orders` - endpoint to get the orders of a market  
 `/api/dex/orders?market_id={market_id}&limit={limit}`  
 

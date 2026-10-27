@@ -17,6 +17,10 @@ type PrefixedEndpoints map[string]string
 
 type CoingeckoConfig struct {
 	Host string
+	// MergedMarkets maps folded market ids to the market ids CoinGecko tracks
+	// (COINGECKO_MERGED_MARKETS=<new market>=<old market>,...): the coingecko
+	// format reports the new market's figures under the old market's ticker.
+	MergedMarkets map[string]string
 }
 
 type PricesConfig struct {
@@ -89,8 +93,14 @@ func NewAppConfig() (*AppConfig, error) {
 	cfg.Blockchain.RpcHost = rpc
 	cfg.Blockchain.GrpcHost = grpc
 
+	mergedMarkets, err := parseEnvVarMap(envFile, "COINGECKO_MERGED_MARKETS")
+	if err != nil {
+		return nil, err
+	}
+
 	cfg.Coingecko = CoingeckoConfig{
-		Host: cg,
+		Host:          cg,
+		MergedMarkets: mergedMarkets,
 	}
 
 	cfg.PrefixedEndpoints, err = parseEnvVarMap(envFile, "PREFIXED_REST_HOSTS")

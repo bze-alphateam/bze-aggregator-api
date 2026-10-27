@@ -111,7 +111,7 @@ func validTickersDeps() (*fakeTickersMarketRepo, *fakeIntervalsRepo, *fakeTicker
 
 func newTestTickersService(t *testing.T, mRepo *fakeTickersMarketRepo, iRepo *fakeIntervalsRepo, oRepo *fakeTickersOrdersRepo, pc *fakePriceCalculator, lRepo *fakeLiquidityDataRepo, ss *fakeSupplyService) *Tickers {
 	t.Helper()
-	svc, err := NewTickersService(newTestLogger(), mRepo, iRepo, oRepo, pc, lRepo, ss)
+	svc, err := NewTickersService(newTestLogger(), mRepo, iRepo, oRepo, pc, lRepo, ss, nil)
 	if err != nil {
 		t.Fatalf("NewTickersService: unexpected error: %v", err)
 	}
@@ -126,18 +126,18 @@ func TestNewTickersServiceRejectsNilDependencies(t *testing.T) {
 	logger := newTestLogger()
 
 	// All valid -> no error.
-	if svc, err := NewTickersService(logger, mRepo, iRepo, oRepo, pc, lRepo, ss); err != nil || svc == nil {
+	if svc, err := NewTickersService(logger, mRepo, iRepo, oRepo, pc, lRepo, ss, nil); err != nil || svc == nil {
 		t.Fatalf("valid dependencies: got svc=%v err=%v", svc, err)
 	}
 
 	cases := map[string]func() (*Tickers, error){
-		"nil logger":        func() (*Tickers, error) { return NewTickersService(nil, mRepo, iRepo, oRepo, pc, lRepo, ss) },
-		"nil marketRepo":    func() (*Tickers, error) { return NewTickersService(logger, nil, iRepo, oRepo, pc, lRepo, ss) },
-		"nil intervalsRepo": func() (*Tickers, error) { return NewTickersService(logger, mRepo, nil, oRepo, pc, lRepo, ss) },
-		"nil ordersRepo":    func() (*Tickers, error) { return NewTickersService(logger, mRepo, iRepo, nil, pc, lRepo, ss) },
-		"nil priceCalc":     func() (*Tickers, error) { return NewTickersService(logger, mRepo, iRepo, oRepo, nil, lRepo, ss) },
-		"nil liquidityRepo": func() (*Tickers, error) { return NewTickersService(logger, mRepo, iRepo, oRepo, pc, nil, ss) },
-		"nil supplyService": func() (*Tickers, error) { return NewTickersService(logger, mRepo, iRepo, oRepo, pc, lRepo, nil) },
+		"nil logger":        func() (*Tickers, error) { return NewTickersService(nil, mRepo, iRepo, oRepo, pc, lRepo, ss, nil) },
+		"nil marketRepo":    func() (*Tickers, error) { return NewTickersService(logger, nil, iRepo, oRepo, pc, lRepo, ss, nil) },
+		"nil intervalsRepo": func() (*Tickers, error) { return NewTickersService(logger, mRepo, nil, oRepo, pc, lRepo, ss, nil) },
+		"nil ordersRepo":    func() (*Tickers, error) { return NewTickersService(logger, mRepo, iRepo, nil, pc, lRepo, ss, nil) },
+		"nil priceCalc":     func() (*Tickers, error) { return NewTickersService(logger, mRepo, iRepo, oRepo, nil, lRepo, ss, nil) },
+		"nil liquidityRepo": func() (*Tickers, error) { return NewTickersService(logger, mRepo, iRepo, oRepo, pc, nil, ss, nil) },
+		"nil supplyService": func() (*Tickers, error) { return NewTickersService(logger, mRepo, iRepo, oRepo, pc, lRepo, nil, nil) },
 	}
 
 	for name, build := range cases {
@@ -256,12 +256,8 @@ func TestGetTickersMarketsRepoErrorPropagates(t *testing.T) {
 // TestGetTickersReturnsErrorButStillAppendsWhenAMarketFails pins today's behaviour
 // when building a single ticker fails: buildTicker returns the error, GetTickers
 // surfaces it AND still appends the partially-built ticker to the slice.
-//
-// BUG: GetTickers/GetCoingeckoTickers share the outer `err` variable and write
-// `gErr` from every worker goroutine without holding the mutex, so with two or
-// more markets those writes race (go test -race would flag it on the normal
-// production path, where many markets exist). These tests use a single market on
-// purpose to stay race-free; the race is reported separately (see PR description).
+// The workers record the error under the mutex, so many markets do not race
+// (TestGetTickersKeepsMergedMarketsSeparate builds three under -race).
 func TestGetTickersReturnsErrorButStillAppendsWhenAMarketFails(t *testing.T) {
 	const marketId = "ubze/uvdl"
 	mRepo, iRepo, oRepo, pc, lRepo, ss := validTickersDeps()
