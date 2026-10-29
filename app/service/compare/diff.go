@@ -26,7 +26,8 @@ type Difference struct {
 
 // Diff compares two decoded JSON values (decoded with UseNumber) structurally.
 // Strings are compared exactly, numbers with a relative tolerance: the one in
-// tolerances for the object key holding them, else 1e-12.
+// tolerances for the object key holding them, else 1e-12. Lists of different
+// lengths report their lengths and their first differing index only.
 func Diff(agg, scan any, tolerances map[string]float64) []Difference {
 	var out []Difference
 	walk("$", "", agg, scan, tolerances, &out)
@@ -63,16 +64,31 @@ func walk(path, field string, agg, scan any, tolerances map[string]float64, out 
 			return
 		}
 
-		if len(a) != len(s) {
-			*out = append(*out, Difference{
-				Path:       path + ".length",
-				Aggregator: strconv.Itoa(len(a)),
-				Scan:       strconv.Itoa(len(s)),
-			})
+		if len(a) == len(s) {
+			for i := range a {
+				walk(fmt.Sprintf("%s[%d]", path, i), field, a[i], s[i], tolerances, out)
+			}
+
+			return
 		}
 
+		// lists of different lengths: one missing or extra entry shifts every
+		// later index, so only the lengths and the first differing index are
+		// reported
+		*out = append(*out, Difference{
+			Path:       path + ".length",
+			Aggregator: strconv.Itoa(len(a)),
+			Scan:       strconv.Itoa(len(s)),
+		})
+
 		for i := range min(len(a), len(s)) {
-			walk(fmt.Sprintf("%s[%d]", path, i), field, a[i], s[i], tolerances, out)
+			var first []Difference
+			walk(fmt.Sprintf("%s[%d]", path, i), field, a[i], s[i], tolerances, &first)
+			if len(first) > 0 {
+				*out = append(*out, first...)
+
+				return
+			}
 		}
 	case json.Number:
 		s, ok := scan.(json.Number)

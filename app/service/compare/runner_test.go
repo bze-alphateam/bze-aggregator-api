@@ -288,3 +288,93 @@ func TestCommandRejectsUnknownEndpoint(t *testing.T) {
 		t.Fatalf("unexpected error %v", err)
 	}
 }
+
+func TestIntervalsPoolWithoutSwap(t *testing.T) {
+	ep := endpoint(t, "intervals")
+	sample := func(id string) compare.Endpoint {
+		e := ep
+		e.Sample = func(context.Context, compare.Source, time.Time) ([]compare.Request, error) {
+			return []compare.Request{{Path: "/api/dex/intervals", Query: url.Values{"market_id": {id}, "minutes": {"60"}}}}, nil
+		}
+
+		return e
+	}
+
+	zero := `[{"start_at":"2026-10-29T12:00:00+02:00","end_at":"2026-10-29T12:59:59+02:00","lowest_price":"0","open_price":"0","average_price":"0","highest_price":"0","close_price":"0","base_volume":"0","quote_volume":"0"}]`
+	unknown := fakeAnswer{400, `{"message":"Unknown error!"}`}
+
+	cases := []struct {
+		name      string
+		id        string
+		agg       fakeAnswer
+		divergent bool
+	}{
+		{"pool, aggregator answers []", "ibc/AB_ubze", fakeAnswer{200, `[]`}, false},
+		{"pool, aggregator answers one zero candle", "ibc/AB_ubze", fakeAnswer{200, zero}, false},
+		{"pool, aggregator has candles", "ibc/AB_ubze", fakeAnswer{200, `[{"start_at":"2026-10-29T12:00:00Z","close_price":"1"}]`}, true},
+		{"order book market", "ubze/uvdl", fakeAnswer{200, `[]`}, true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			q := url.Values{"market_id": {c.id}, "minutes": {"60"}}
+			doer := newFakeDoer()
+			doer.on(aggBase, "/api/dex/intervals", q, c.agg)
+			doer.on(scanBase, "/api/dex/intervals", q, unknown)
+
+			res, out := run(t, doer, newFakeClock(), compare.Config{}, sample(c.id))
+			if res.Diverged() != c.divergent {
+				t.Fatalf("diverged = %v, output:\n%s", res.Diverged(), out)
+			}
+		})
+	}
+}
+
+func TestShiftedListPrintsFirstDifferenceOnly(t *testing.T) {
+	var agg, scan []string
+	for i := range 50 {
+		agg = append(agg, fmt.Sprintf(`{"market_id":"m","last_price":%d}`, i))
+	}
+	// Scan has one extra entry at the front: every index shifts
+	scan = append([]string{`{"market_id":"m","last_price":-1}`}, agg...)
+
+	doer := newFakeDoer()
+	doer.on(aggBase, tickersReq.Path, nil, fakeAnswer{200, "[" + strings.Join(agg, ",") + "]"})
+	doer.on(scanBase, tickersReq.Path, nil, fakeAnswer{200, "[" + strings.Join(scan, ",") + "]"})
+
+	_, out := run(t, doer, newFakeClock(), compare.Config{}, fixed(t, tickersReq))
+
+	details := 0
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, "  tickers ") {
+			details++
+		}
+	}
+
+	if details != 2 || !strings.Contains(out, "$.length: aggregator=50 scan=51") ||
+		!strings.Contains(out, "$[0].last_price: aggregator=0 scan=-1") {
+		t.Fatalf("unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandStoppedCleanExitsZero(t *testing.T) {
+	doer := newFakeDoer()
+	doer.both(tickersReq.Path, nil, http.StatusOK, `[]`)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var out bytes.Buffer
+	cmd := compare.NewCommand(doer, newFakeClock(), &out)
+	cmd.SetArgs([]string{"tickers", "--agg", aggBase, "--scan", scanBase})
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	if err := cmd.ExecuteContext(ctx); err != nil {
+		t.Fatalf("a stopped clean run must exit 0, got %v:\n%s", err, out.String())
+	}
+
+	if !strings.Contains(out.String(), "summary tickers: 0 rounds") {
+		t.Fatalf("unexpected output:\n%s", out.String())
+	}
+}

@@ -249,7 +249,12 @@ func comparePair(ep Endpoint, req Request, agg, scan response) []Difference {
 			return compareRaw(agg.body, scan.body)
 		}
 
-		return Diff(ep.Normalise(req, av), ep.Normalise(req, sv), ep.Tolerances)
+		na, ns := ep.Normalise(req, av), ep.Normalise(req, sv)
+		if ep.Reconcile != nil {
+			na, ns = ep.Reconcile(req, na, ns)
+		}
+
+		return Diff(na, ns, ep.Tolerances)
 	case agg.clientError() && scan.clientError():
 		// a 4xx on both sides is a match when the bodies are equal
 		av, aerr := decode(agg.body)
@@ -260,6 +265,19 @@ func comparePair(ep Endpoint, req Request, agg, scan response) []Difference {
 
 		return Diff(av, sv, nil)
 	default:
+		if ep.AllowStatus != nil && agg.err == nil && scan.err == nil {
+			var na any
+			if agg.ok() {
+				if av, err := decode(agg.body); err == nil {
+					na = ep.Normalise(req, av)
+				}
+			}
+
+			if ep.AllowStatus(req, na, agg.status, scan.status) {
+				return nil
+			}
+		}
+
 		return []Difference{{Path: "status", Aggregator: agg.describe(), Scan: scan.describe()}}
 	}
 }

@@ -114,12 +114,14 @@ nohup ./bze-agg compare all > compare.log 2>&1 &
 			defer stop()
 
 			res, err := runner.Run(ctx, endpoints)
-			if err != nil {
-				return fmt.Errorf("compare stopped: %w", err)
-			}
-
 			if res.Diverged() {
 				return ErrDiverged
+			}
+
+			// stopped by a signal (or the caller) before any divergence: a
+			// clean run so far, exit 0
+			if err != nil && ctx.Err() == nil {
+				return fmt.Errorf("compare stopped: %w", err)
 			}
 
 			return nil

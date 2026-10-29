@@ -22,11 +22,20 @@ func endpoint(t *testing.T, name string) compare.Endpoint {
 	return eps[0]
 }
 
-// same normalises both answers and expects no difference.
+// compared normalises (and reconciles) both answers, as a round does.
+func compared(ep compare.Endpoint, req compare.Request, agg, scan string) []compare.Difference {
+	na, ns := ep.Normalise(req, decodeJSON(agg)), ep.Normalise(req, decodeJSON(scan))
+	if ep.Reconcile != nil {
+		na, ns = ep.Reconcile(req, na, ns)
+	}
+
+	return compare.Diff(na, ns, ep.Tolerances)
+}
+
 func same(t *testing.T, ep compare.Endpoint, req compare.Request, agg, scan string) {
 	t.Helper()
 
-	if d := compare.Diff(ep.Normalise(req, decodeJSON(agg)), ep.Normalise(req, decodeJSON(scan)), ep.Tolerances); len(d) != 0 {
+	if d := compared(ep, req, agg, scan); len(d) != 0 {
 		t.Fatalf("expected a match, got %+v", d)
 	}
 }
@@ -34,7 +43,7 @@ func same(t *testing.T, ep compare.Endpoint, req compare.Request, agg, scan stri
 func differs(t *testing.T, ep compare.Endpoint, req compare.Request, agg, scan string) {
 	t.Helper()
 
-	if d := compare.Diff(ep.Normalise(req, decodeJSON(agg)), ep.Normalise(req, decodeJSON(scan)), ep.Tolerances); len(d) == 0 {
+	if d := compared(ep, req, agg, scan); len(d) == 0 {
 		t.Fatal("expected a difference")
 	}
 }
@@ -111,27 +120,80 @@ func TestNormaliseHistoryFullPageCut(t *testing.T) {
 	ep := endpoint(t, "history")
 	req := compare.Request{Path: "/api/dex/history", Query: url.Values{"market_id": {"ubze/uvdl"}, "limit": {"3"}}}
 
-	// the limit cuts second 101 after one trade on one side, after two on the other
+	// the limit cuts second 101 after two trades on one side, after one on the other
 	agg := []any{historyTrade(4, 102, "1"), historyTrade(3, 101, "1"), historyTrade(2, 101, "2")}
-	scan := []any{historyTrade(9, 102, "1"), historyTrade(8, 102, "5"), historyTrade(7, 101, "3")}
-	differs(t, ep, req, mustJSON(t, agg), mustJSON(t, scan))
-
-	scan = []any{historyTrade(9, 102, "1"), historyTrade(8, 101, "3"), historyTrade(7, 101, "4")}
+	scan := []any{historyTrade(9, 102, "1"), historyTrade(8, 101, "3"), historyTrade(7, 101, "4")}
 	same(t, ep, req, mustJSON(t, agg), mustJSON(t, scan))
+
+	// the newer seconds still have to match
+	scan = []any{historyTrade(9, 102, "9"), historyTrade(8, 101, "3"), historyTrade(7, 101, "4")}
+	differs(t, ep, req, mustJSON(t, agg), mustJSON(t, scan))
 
 	// not a full page: nothing is dropped
 	notFull := compare.Request{Path: "/api/dex/history", Query: url.Values{"market_id": {"ubze/uvdl"}, "limit": {"50"}}}
+	scan = []any{historyTrade(9, 102, "1"), historyTrade(8, 101, "3"), historyTrade(7, 101, "4")}
 	differs(t, ep, notFull, mustJSON(t, agg), mustJSON(t, scan))
 }
 
-func TestNormaliseHistoryDefaultLimitAndDoubledEvents(t *testing.T) {
+func TestNormaliseHistoryScanSuperset(t *testing.T) {
+	ep := endpoint(t, "history")
+	req := compare.Request{Path: "/api/dex/history", Query: url.Values{"market_id": {"ubze/uvdl"}, "limit": {"50"}}}
+
+	// the aggregator lost one trade of second 101 at a sync page boundary
+	agg := []any{historyTrade(3, 102, "1"), historyTrade(2, 101, "1"), historyTrade(1, 100, "1")}
+	scan := []any{historyTrade(9, 102, "1"), historyTrade(8, 101, "5"), historyTrade(7, 101, "1"), historyTrade(6, 100, "1")}
+	same(t, ep, req, mustJSON(t, agg), mustJSON(t, scan))
+
+	// not in a second the aggregator has
+	scan = []any{historyTrade(9, 102, "1"), historyTrade(8, 101, "1"), historyTrade(7, 100, "1"), historyTrade(6, 99, "1")}
+	differs(t, ep, req, mustJSON(t, agg), mustJSON(t, scan))
+
+	// the aggregator has a trade Scan misses
+	scan = []any{historyTrade(9, 102, "1"), historyTrade(8, 101, "5"), historyTrade(7, 100, "1")}
+	differs(t, ep, req, mustJSON(t, agg), mustJSON(t, scan))
+
+	// on full pages the extra row ends Scan's page a second earlier
+	full := compare.Request{Path: "/api/dex/history", Query: url.Values{"market_id": {"ubze/uvdl"}, "limit": {"3"}}}
+	agg = []any{historyTrade(3, 103, "1"), historyTrade(2, 102, "1"), historyTrade(1, 101, "1")}
+	scan = []any{historyTrade(9, 103, "1"), historyTrade(8, 103, "5"), historyTrade(7, 102, "1")}
+	same(t, ep, full, mustJSON(t, agg), mustJSON(t, scan))
+}
+
+// inDoubledWindow is a time inside the v8.0.x doubled-event window.
+var inDoubledWindow = time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC).Unix()
+
+func TestNormaliseHistoryDoubledEvents(t *testing.T) {
 	ep := endpoint(t, "history")
 	req := compare.Request{Path: "/api/dex/history", Query: url.Values{"address": {"bze1t"}}}
+	w := inDoubledWindow
 
 	// a v8.0.x doubled event is listed twice on the aggregator only
-	agg := []any{historyTrade(2, 101, "1"), historyTrade(1, 101, "1"), historyTrade(0, 100, "2")}
-	scan := []any{historyTrade(5, 101, "1"), historyTrade(4, 100, "2")}
+	agg := []any{historyTrade(2, w+1, "1"), historyTrade(1, w+1, "1"), historyTrade(0, w, "2")}
+	scan := []any{historyTrade(5, w+1, "1"), historyTrade(4, w, "2")}
 	same(t, ep, req, mustJSON(t, agg), mustJSON(t, scan))
+}
+
+func TestNormaliseHistoryIdenticalTradesOutsideWindow(t *testing.T) {
+	ep := endpoint(t, "history")
+	req := compare.Request{Path: "/api/dex/history", Query: url.Values{"address": {"bze1t"}}}
+	now := newFakeClock().Now().Unix()
+
+	// two equal resting orders filled by one taker in one block: two real
+	// trades the aggregator lists, Scan losing one is a divergence
+	agg := []any{historyTrade(2, now, "1"), historyTrade(1, now, "1")}
+	scan := []any{historyTrade(5, now, "1")}
+	differs(t, ep, req, mustJSON(t, agg), mustJSON(t, scan))
+	same(t, ep, req, mustJSON(t, agg), mustJSON(t, agg))
+}
+
+func TestSwapsUnderscoreDenoms(t *testing.T) {
+	ep := endpoint(t, "swaps")
+	req := compare.Request{Path: "/api/dex/swaps", Query: url.Values{"address": {"bze1a"}}}
+
+	same(t, ep, req,
+		`[{"order_id":7,"price":"2","base_volume":"1","executed_at":"1700000001000","taker":"bze1a","base":"ubze","quote":"uvdl"}]`,
+		`[{"order_id":9,"price":"3","base_volume":"1","executed_at":"1700000002000","taker":"bze1a","base":"factory/x/a_b","quote":"ubze"},
+		  {"order_id":8,"price":"2","base_volume":"1","executed_at":"1700000001000","taker":"bze1a","base":"ubze","quote":"uvdl"}]`)
 }
 
 func TestNormaliseHistoryCoingecko(t *testing.T) {
@@ -224,7 +286,12 @@ func TestNormaliseTickers(t *testing.T) {
 		`[{"ticker_id":"a_q","last_price":2},{"ticker_id":"lp_b_q","liquidity_in_usd":1000.0002}]`)
 	differs(t, ep, cg,
 		`[{"ticker_id":"lp_b_q","liquidity_in_usd":1000}]`,
-		`[{"ticker_id":"lp_b_q","liquidity_in_usd":1000.01}]`)
+		`[{"ticker_id":"lp_b_q","liquidity_in_usd":1002}]`)
+
+	// pools priced through BZE differ by about 0.01 % (BFE-304)
+	same(t, ep, cg,
+		`[{"ticker_id":"lp_b_q","liquidity_in_usd":1000}]`,
+		`[{"ticker_id":"lp_b_q","liquidity_in_usd":1000.1}]`)
 }
 
 func requests(t *testing.T, name string, src fakeSource) []string {

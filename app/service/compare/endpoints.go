@@ -56,6 +56,13 @@ type Endpoint struct {
 	Sample func(ctx context.Context, src Source, now time.Time) ([]Request, error)
 	// Normalise rewrites a decoded 2xx answer; it may change v in place.
 	Normalise func(req Request, v any) any
+	// Reconcile rewrites both normalised 2xx answers side by side, for the
+	// allowed differences one answer alone cannot tell; nil skips it.
+	Reconcile func(req Request, agg, scan any) (any, any)
+	// AllowStatus accepts a status mismatch the endpoint allows. agg is the
+	// aggregator's normalised answer when it is a 2xx, else nil; nil accepts
+	// none.
+	AllowStatus func(req Request, agg any, aggStatus, scanStatus int) bool
 	// Tolerances overrides the relative number tolerance per object key.
 	Tolerances map[string]float64
 }
@@ -64,15 +71,17 @@ type Endpoint struct {
 func Endpoints() []Endpoint {
 	return []Endpoint{
 		{Name: "orders", Sample: sampleOrders, Normalise: normaliseOrders},
-		{Name: "swaps", Sample: sampleSwaps, Normalise: normaliseSwaps},
-		{Name: "history", Sample: sampleHistory, Normalise: normaliseHistory},
-		{Name: "intervals", Sample: sampleIntervals, Normalise: normaliseIntervals},
+		{Name: "swaps", Sample: sampleSwaps, Normalise: normaliseSwaps, Reconcile: reconcileSwaps},
+		{Name: "history", Sample: sampleHistory, Normalise: normaliseHistory, Reconcile: reconcileHistory},
+		{Name: "intervals", Sample: sampleIntervals, Normalise: normaliseIntervals, AllowStatus: allowIntervalsStatus},
 		{
 			Name:      "tickers",
 			Sample:    sampleTickers,
 			Normalise: normaliseTickers,
-			// USD prices are cached for 60 s on both sides (BFE-304)
-			Tolerances: map[string]float64{"liquidity_in_usd": 1e-6},
+			// USD prices are cached for 60 s on both sides, and pools priced
+			// through BZE differ by about 0.01 % because the aggregator cuts
+			// prices with %f (BFE-304)
+			Tolerances: map[string]float64{"liquidity_in_usd": 1e-3},
 		},
 	}
 }
@@ -318,122 +327,6 @@ func normaliseOrders(_ Request, v any) any {
 	return o
 }
 
-// tradeFields names a trade list's id and time keys.
-type tradeFields struct {
-	id   string
-	time string
-}
-
-var (
-	defaultTrade   = tradeFields{id: "order_id", time: "executed_at"}
-	coingeckoTrade = tradeFields{id: "trade_id", time: "trade_timestamp"}
-)
-
-func normaliseSwaps(_ Request, v any) any {
-	list, ok := v.([]any)
-	if !ok {
-		return v
-	}
-
-	return normaliseTrades([][]any{list}, defaultTrade, swapsLimit)[0]
-}
-
-func normaliseHistory(req Request, v any) any {
-	limit := queryLimit(req, historyDefaultLimit, historyMaxLimit)
-
-	if req.Query.Get("format") != formatCoingecko {
-		list, ok := v.([]any)
-		if !ok {
-			return v
-		}
-
-		return normaliseTrades([][]any{list}, defaultTrade, limit)[0]
-	}
-
-	o, ok := v.(map[string]any)
-	if !ok {
-		return v
-	}
-
-	// the limit cuts the trades before they are split by side, so both sides
-	// make up one page
-	sides := []string{"buy", "sell"}
-	lists := make([][]any, len(sides))
-	for i, side := range sides {
-		lists[i], _ = o[side].([]any)
-	}
-
-	lists = normaliseTrades(lists, coingeckoTrade, limit)
-	for i, side := range sides {
-		if _, ok := o[side]; ok {
-			o[side] = lists[i]
-		}
-	}
-
-	return o
-}
-
-// normaliseTrades applies the trade lists' allowed differences (BFE-301,
-// BFE-302). lists are the parts of one page of at most limit trades.
-func normaliseTrades(lists [][]any, f tradeFields, limit int) [][]any {
-	total := 0
-	for _, l := range lists {
-		total += len(l)
-	}
-
-	full := limit > 0 && total >= limit
-
-	out := make([][]any, len(lists))
-	for i, l := range lists {
-		for _, e := range l {
-			t, ok := e.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			// Scan's ids are stable trade ids, the aggregator's its row ids
-			delete(t, f.id)
-			// Scan has the block time in ms, the aggregator whole seconds
-			if s, ok := truncateToSeconds(t[f.time]); ok {
-				t[f.time] = s
-			}
-		}
-
-		// trades within the same second can come in another order
-		sortTrades(l, f.time)
-		// v8.0.x doubled events are counted once on Scan, twice on the
-		// aggregator
-		out[i] = dedupe(l)
-	}
-
-	if !full {
-		return out
-	}
-
-	// on a full page the limit can cut the oldest second in two different
-	// places, so the trades of that second are dropped
-	oldest := int64(-1)
-	for _, l := range out {
-		if len(l) == 0 {
-			continue
-		}
-
-		if s := tradeSeconds(l[len(l)-1], f.time); oldest < 0 || s < oldest {
-			oldest = s
-		}
-	}
-
-	for i, l := range out {
-		for len(l) > 0 && tradeSeconds(l[len(l)-1], f.time) == oldest {
-			l = l[:len(l)-1]
-		}
-
-		out[i] = l
-	}
-
-	return out
-}
-
 func normaliseIntervals(req Request, v any) any {
 	list, ok := v.([]any)
 	if !ok {
@@ -470,6 +363,15 @@ func normaliseIntervals(req Request, v any) any {
 	}
 
 	return list
+}
+
+// allowIntervalsStatus: a pool without a swap is unknown on Scan (400), the
+// aggregator answers [] or one zero candle, which normalises to [] (BFE-303).
+func allowIntervalsStatus(req Request, agg any, aggStatus, scanStatus int) bool {
+	list, ok := agg.([]any)
+
+	return ok && len(list) == 0 && isPool(req.Query.Get("market_id")) &&
+		aggStatus >= 200 && aggStatus < 300 && scanStatus == 400
 }
 
 func normaliseTickers(req Request, v any) any {
@@ -620,22 +522,6 @@ func sortTrades(list []any, timeKey string) {
 
 		return strings.Compare(canonical(a), canonical(b))
 	})
-}
-
-func dedupe(list []any) []any {
-	out := make([]any, 0, len(list))
-	last := ""
-	for i, e := range list {
-		c := canonical(e)
-		if i > 0 && c == last {
-			continue
-		}
-
-		last = c
-		out = append(out, e)
-	}
-
-	return out
 }
 
 func canonical(v any) string {

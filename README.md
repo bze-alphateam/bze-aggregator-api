@@ -257,9 +257,13 @@ swaps, every market's and pool's history, candles and the tickers themselves. Ea
 fetched from the aggregator, from Scan, then from the aggregator again, one request at a time and
 with a `bze-agg-compare` user agent; it diverges only when Scan's answer differs from both
 aggregator answers, so a trade landing in between is not reported. Before comparing, both answers
-are normalised for the differences Scan is allowed (stable trade ids, block times in milliseconds,
-the order of trades within one second, UTC times, leading zero candles, the order of tickers,
-`null` against `[]`). Numbers may differ by a relative 1e-12 (1e-6 for `liquidity_in_usd`).
+are normalised for the differences Scan is allowed: stable trade ids, block times in milliseconds,
+the order of trades within one second, trades the aggregator lost within a second it has, the
+v8.0.x doubled events (inside their block range only), swaps with a `_` in a denom, UTC times,
+leading zero candles (and a 400 for a pool without a swap), the order of tickers, `null` against
+`[]`. On a full page only the seconds newer than the oldest second of each full side are compared.
+Numbers may differ by a relative 1e-12 (1e-3 for `liquidity_in_usd`). Prices of markets whose quote
+has three or more decimals more than the base are right on Scan only and show up as differences.
 
 The output has one line per round and endpoint (`round N <endpoint>: X requests, Y divergent`),
 then at most 20 lines per round naming each difference's request, JSON path, aggregator value and
