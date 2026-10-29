@@ -234,3 +234,41 @@ Response:
 
 Release build  
 `GOOS=linux GOARCH=amd64 go build -o bze-agg-linux_amd64`
+
+### Comparing with BZE Scan
+
+BZE Scan serves copies of the aggregator's endpoints under `/aggregator` (e.g.
+`https://explorer.getbze.com/aggregator/api/dex/tickers`). `bze-agg compare` checks that its DEX
+endpoints answer what the aggregator answers before traffic moves to them. It needs no `.env`, no
+database and no node: build the binary and run it anywhere with access to both hosts.
+
+```
+./bze-agg compare <orders|swaps|history|intervals|tickers|all> [--agg https://getbze.com] \
+    [--scan https://explorer.getbze.com/aggregator] [--interval 20m] [--duration 24h]
+```
+
+- `--agg`, `--scan`: the base URLs; the same `/api/dex/...` path and query are appended to both.
+- `--interval`: time between the starts of two rounds; the first round starts right away.
+- `--duration`: how long to run (the defaults give 72 rounds).
+
+Each round reads the aggregator's tickers (and, for `swaps` and `history`, recent swaps and trades)
+to build the requests it compares: every order book market's orders, the takers of the newest
+swaps, every market's and pool's history, candles and the tickers themselves. Each request is
+fetched from the aggregator, from Scan, then from the aggregator again, one request at a time and
+with a `bze-agg-compare` user agent; it diverges only when Scan's answer differs from both
+aggregator answers, so a trade landing in between is not reported. Before comparing, both answers
+are normalised for the differences Scan is allowed (stable trade ids, block times in milliseconds,
+the order of trades within one second, UTC times, leading zero candles, the order of tickers,
+`null` against `[]`). Numbers may differ by a relative 1e-12 (1e-6 for `liquidity_in_usd`).
+
+The output has one line per round and endpoint (`round N <endpoint>: X requests, Y divergent`),
+then at most 20 lines per round naming each difference's request, JSON path, aggregator value and
+Scan value, and a summary per endpoint at the end. The exit code is 1 when any round diverged.
+
+To run it for 24 hours detached:
+
+```
+nohup ./bze-agg compare all > compare.log 2>&1 &
+```
+
+Stopping it (`kill <pid>`) prints the summary of the rounds so far.
