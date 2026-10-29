@@ -78,6 +78,7 @@ func Endpoints() []Endpoint {
 			Name:      "tickers",
 			Sample:    sampleTickers,
 			Normalise: normaliseTickers,
+			Reconcile: reconcileTickers,
 			// USD prices are cached for 60 s on both sides, and pools priced
 			// through BZE differ by about 0.01 % because the aggregator cuts
 			// prices with %f (BFE-304)
@@ -391,6 +392,30 @@ func normaliseTickers(req Request, v any) any {
 	})
 
 	return list
+}
+
+// reconcileTickers: Scan prices the newer pools, whose LP token is
+// ulp/<hash>, and lists their liquidity_in_usd where the aggregator leaves
+// the field out (BFE-304). Scan's value is dropped only when the aggregator's
+// ticker has none; a value only the aggregator has is still a difference.
+func reconcileTickers(req Request, agg, scan any) (any, any) {
+	if req.Query.Get("format") != formatCoingecko {
+		return agg, scan
+	}
+
+	aggHas := map[string]bool{}
+	for _, t := range objects(agg) {
+		_, ok := t["liquidity_in_usd"]
+		aggHas[str(t, "ticker_id")] = ok
+	}
+
+	for _, t := range objects(scan) {
+		if has, listed := aggHas[str(t, "ticker_id")]; listed && !has {
+			delete(t, "liquidity_in_usd")
+		}
+	}
+
+	return agg, scan
 }
 
 // ---- helpers ----

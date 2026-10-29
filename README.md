@@ -261,7 +261,8 @@ are normalised for the differences Scan is allowed: stable trade ids, block time
 the order of trades within one second, trades the aggregator lost within a second it has, the
 v8.0.x doubled events (inside their block range only), swaps with a `_` in a denom, UTC times,
 leading zero candles (and a 400 for a pool without a swap), the order of tickers, `null` against
-`[]`. On a full page only the seconds newer than the oldest second of each full side are compared.
+`[]`, and a `liquidity_in_usd` Scan lists where the aggregator has none (the newer `ulp/<hash>`
+pools). On a full page only the seconds newer than the oldest second of each full side are compared.
 Numbers may differ by a relative 1e-12 (1e-3 for `liquidity_in_usd`). Prices of markets whose quote
 has three or more decimals more than the base are right on Scan only and show up as differences.
 

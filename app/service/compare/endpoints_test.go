@@ -288,6 +288,21 @@ func TestNormaliseTickers(t *testing.T) {
 		`[{"ticker_id":"lp_b_q","liquidity_in_usd":1000}]`,
 		`[{"ticker_id":"lp_b_q","liquidity_in_usd":1002}]`)
 
+	// a newer pool (ulp/<hash>) priced on Scan only
+	same(t, ep, cg,
+		`[{"ticker_id":"lp_new_ubze","last_price":1}]`,
+		`[{"ticker_id":"lp_new_ubze","last_price":1,"liquidity_in_usd":42.5}]`)
+
+	// an old pool both price: still compared
+	differs(t, ep, cg,
+		`[{"ticker_id":"lp_old_ubze","liquidity_in_usd":40}]`,
+		`[{"ticker_id":"lp_old_ubze","liquidity_in_usd":42.5}]`)
+
+	// a value only the aggregator has is a difference
+	differs(t, ep, cg,
+		`[{"ticker_id":"lp_old_ubze","liquidity_in_usd":40}]`,
+		`[{"ticker_id":"lp_old_ubze"}]`)
+
 	// pools priced through BZE differ by about 0.01 % (BFE-304)
 	same(t, ep, cg,
 		`[{"ticker_id":"lp_b_q","liquidity_in_usd":1000}]`,
