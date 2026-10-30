@@ -38,6 +38,13 @@ type BlockchainConfig struct {
 	UseGrpcTls bool
 }
 
+// ScanConfig is the proxy to BZE Scan (SCAN_API_HOST, SCAN_PROXIED_ENDPOINTS),
+// validated by server/scanproxy at startup.
+type ScanConfig struct {
+	Host      string
+	Endpoints string
+}
+
 type Logging struct {
 	Level string
 }
@@ -53,6 +60,7 @@ type AppConfig struct {
 	Prices            PricesConfig
 	Coingecko         CoingeckoConfig
 	PrefixedEndpoints PrefixedEndpoints
+	Scan              ScanConfig
 }
 
 func NewAppConfig() (*AppConfig, error) {
@@ -106,6 +114,11 @@ func NewAppConfig() (*AppConfig, error) {
 	cfg.PrefixedEndpoints, err = parseEnvVarMap(envFile, "PREFIXED_REST_HOSTS")
 	if err != nil {
 		return nil, err
+	}
+
+	cfg.Scan = ScanConfig{
+		Host:      envFile["SCAN_API_HOST"],
+		Endpoints: envFile["SCAN_PROXIED_ENDPOINTS"],
 	}
 
 	return cfg, nil

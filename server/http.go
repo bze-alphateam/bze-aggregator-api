@@ -2,10 +2,12 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
 	"github.com/bze-alphateam/bze-aggregator-api/server/factory"
+	"github.com/bze-alphateam/bze-aggregator-api/server/scanproxy"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
@@ -26,6 +28,17 @@ func Start() {
 	//generates a unique id for each request
 	e.Use(middleware.RequestID())
 	e.Use(middleware.CORS())
+
+	// Listed endpoints are answered from BZE Scan, the handlers below are the
+	// failover. Runs after CORS so the aggregator stays the only header source.
+	scanProxy, err := scanproxy.New(scanproxy.Config{
+		Host:      appCfg.Scan.Host,
+		Endpoints: appCfg.Scan.Endpoints,
+	}, &http.Client{}, logger)
+	if err != nil {
+		logger.Fatalf("could not start server: %s", err)
+	}
+	e.Use(scanProxy.Middleware())
 
 	ctrlFactory, err := factory.NewControllerFactory(logger, appCfg)
 	if err != nil {

@@ -277,3 +277,36 @@ nohup ./bze-agg compare all > compare.log 2>&1 &
 ```
 
 Stopping it (`kill <pid>`) prints the summary of the rounds so far.
+
+### Proxying to BZE Scan
+
+The API can answer endpoints from BZE Scan, which serves the same paths and responses under its
+`/aggregator` base, while the aggregator keeps syncing so its own handlers stay ready as the
+failover. Two `.env` keys control it:
+
+- `SCAN_API_HOST`: Scan's base URL including `/aggregator`, e.g.
+  `https://explorer.getbze.com/aggregator`. Scan runs blue/green on two ports, so use a stable
+  address such as its public host rather than one backend port.
+- `SCAN_PROXIED_ENDPOINTS`: comma-separated names of the endpoints to proxy:
+
+| Name | Routes |
+| --- | --- |
+| `prices` | `/api/prices` |
+| `supply` | `/api/supply/total`, `/api/supply/circulating` |
+| `articles` | `/api/articles/medium` |
+| `orders` | `/api/dex/orders` |
+| `swaps` | `/api/dex/swaps` |
+| `history` | `/api/dex/history` |
+| `intervals` | `/api/dex/intervals` |
+| `tickers` | `/api/dex/tickers` |
+
+`/api/health/*` is never proxied: it reports on the aggregator itself. The API refuses to start on
+an unknown name or on a non-empty list without `SCAN_API_HOST`; an empty list proxies nothing.
+
+A proxied request goes to `SCAN_API_HOST` plus the original path and query (10 s timeout), and
+Scan's status, `Content-Type` and body are returned as they are. CORS headers stay the
+aggregator's own. **Failover:** when Scan cannot be reached, times out or answers 5xx, the API
+logs one warning naming the endpoint and answers from its own handler. A 4xx from Scan is a valid
+answer (e.g. a bad parameter) and is passed through.
+
+Roll back by emptying `SCAN_PROXIED_ENDPOINTS` and restarting the API.
