@@ -15,27 +15,15 @@ const (
 
 type PrefixedEndpoints map[string]string
 
-type CoingeckoConfig struct {
-	Host string
-	// MergedMarkets maps folded market ids to the market ids CoinGecko tracks
-	// (COINGECKO_MERGED_MARKETS=<new market>=<old market>,...): the coingecko
-	// format reports the new market's figures under the old market's ticker.
-	MergedMarkets map[string]string
-}
-
-type PricesConfig struct {
-	Denominations string
-	NativeDenom   string
-	UsdcDenom     string
-}
-
 type BlockchainConfig struct {
 	RestHost    string
-	RpcHost     string
-	GrpcHost    string
 	HealthNodes map[string]string
+}
 
-	UseGrpcTls bool
+// ScanConfig is BZE Scan's base URL including its /aggregator prefix
+// (SCAN_API_HOST).
+type ScanConfig struct {
+	Host string
 }
 
 type Logging struct {
@@ -50,37 +38,22 @@ type AppConfig struct {
 	Server            Server
 	Logging           Logging
 	Blockchain        BlockchainConfig
-	Prices            PricesConfig
-	Coingecko         CoingeckoConfig
 	PrefixedEndpoints PrefixedEndpoints
+	Scan              ScanConfig
 }
 
 func NewAppConfig() (*AppConfig, error) {
 	envFile, err := godotenv.Read(".env")
 	cfg := loadDefaultConfig(envFile, err)
-	rpc, ok := envFile["BLOCKCHAIN_RPC_HOST"]
-	if !ok {
-		return nil, errors.New("BLOCKCHAIN_RPC_HOST not found in .env")
-	}
 
 	rest, ok := envFile["BLOCKCHAIN_REST_HOST"]
 	if !ok {
 		return nil, errors.New("BLOCKCHAIN_REST_HOST not found in .env")
 	}
 
-	grpc, ok := envFile["BLOCKCHAIN_GRPC_HOST"]
+	scan, ok := envFile["SCAN_API_HOST"]
 	if !ok {
-		return nil, errors.New("BLOCKCHAIN_GRPC_HOST not found in .env")
-	}
-
-	cg, ok := envFile["COINGECKO_HOST"]
-	if !ok {
-		return nil, errors.New("COINGECKO_HOST not found in .env")
-	}
-
-	useGrpcTls, ok := envFile["BLOCKCHAIN_GRPC_USE_TLS"]
-	if ok {
-		cfg.Blockchain.UseGrpcTls = useGrpcTls == "true"
+		return nil, errors.New("SCAN_API_HOST not found in .env")
 	}
 
 	healthNodes, err := parseEnvVarMap(envFile, "HEALTH_NODES")
@@ -90,18 +63,7 @@ func NewAppConfig() (*AppConfig, error) {
 
 	cfg.Blockchain.HealthNodes = healthNodes
 	cfg.Blockchain.RestHost = rest
-	cfg.Blockchain.RpcHost = rpc
-	cfg.Blockchain.GrpcHost = grpc
-
-	mergedMarkets, err := parseEnvVarMap(envFile, "COINGECKO_MERGED_MARKETS")
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.Coingecko = CoingeckoConfig{
-		Host:          cg,
-		MergedMarkets: mergedMarkets,
-	}
+	cfg.Scan.Host = scan
 
 	cfg.PrefixedEndpoints, err = parseEnvVarMap(envFile, "PREFIXED_REST_HOSTS")
 	if err != nil {
@@ -112,43 +74,15 @@ func NewAppConfig() (*AppConfig, error) {
 }
 
 func loadDefaultConfig(env map[string]string, err error) *AppConfig {
-
 	port := defaultPort
 	logLevel := defaultLoggingLevel
-	if err != nil {
-		return &AppConfig{
-			Server: Server{
-				Port: port,
-			},
-			Logging: Logging{
-				Level: logLevel,
-			},
+	if err == nil {
+		if v, ok := env["HTTP_PORT"]; ok {
+			port = v
 		}
-	}
-
-	port, ok := env["HTTP_PORT"]
-	if !ok {
-		port = defaultPort
-	}
-
-	logLevel, ok = env["LOG_LEVEL"]
-	if !ok {
-		logLevel = defaultLoggingLevel
-	}
-
-	prices, ok := env["COINGECKO_PRICE_IDS"]
-	if !ok {
-		prices = ""
-	}
-
-	nativeDenom, ok := env["NATIVE_DENOM"]
-	if !ok {
-		nativeDenom = ""
-	}
-
-	usdcDenom, ok := env["USDC_DENOM"]
-	if !ok {
-		usdcDenom = ""
+		if v, ok := env["LOG_LEVEL"]; ok {
+			logLevel = v
+		}
 	}
 
 	return &AppConfig{
@@ -157,11 +91,6 @@ func loadDefaultConfig(env map[string]string, err error) *AppConfig {
 		},
 		Logging: Logging{
 			Level: logLevel,
-		},
-		Prices: PricesConfig{
-			Denominations: prices,
-			NativeDenom:   nativeDenom,
-			UsdcDenom:     usdcDenom,
 		},
 	}
 }

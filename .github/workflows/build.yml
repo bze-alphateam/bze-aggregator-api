@@ -4,18 +4,18 @@ name: build
 #
 # Runs on:
 #   - pull_request      — every PR, before it can be merged (job id `build` is the
-#                         required status check on `main`).
-#   - push to main      — re-runs the same checks on the merge result, so a bad
+#                         required status check on `main-v2`).
+#   - push to main-v2   — re-runs the same checks on the merge result, so a bad
 #                         merge or an out-of-date branch is caught even when the
 #                         individual PR was green.
 #   - workflow_dispatch — manual re-run from the Actions tab.
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main-v2]
   workflow_dispatch:
 
-# Supersede stale PR runs; never cancel a run for a commit already on main.
+# Supersede stale PR runs; never cancel a run for a commit already on main-v2.
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

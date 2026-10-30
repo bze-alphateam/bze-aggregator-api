@@ -1,7 +1,5 @@
-# Production image. One image serves both long-running roles:
-#   docker run <img>                  -> HTTP API (no args, port 8888)
-#   docker run <img> sync listener    -> websocket listener/consumer
-# plus one-shot commands (cleanup, sync ...) via `docker compose run`.
+# Production image: the HTTP API on port 8888 (a proxy to BZE Scan plus the
+# health checks).
 #
 # The app reads ALL configuration from a `.env` file in its working
 # directory (godotenv) — not from process environment variables. Mount the
