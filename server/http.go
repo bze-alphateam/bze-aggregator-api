@@ -2,10 +2,15 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 
+	"github.com/bze-alphateam/bze-aggregator-api/app/controller"
+	appService "github.com/bze-alphateam/bze-aggregator-api/app/service"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/client"
+	"github.com/bze-alphateam/bze-aggregator-api/app/service/health"
 	"github.com/bze-alphateam/bze-aggregator-api/internal"
 	"github.com/bze-alphateam/bze-aggregator-api/server/config"
-	"github.com/bze-alphateam/bze-aggregator-api/server/factory"
+	"github.com/bze-alphateam/bze-aggregator-api/server/scanproxy"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
@@ -27,58 +32,55 @@ func Start() {
 	e.Use(middleware.RequestID())
 	e.Use(middleware.CORS())
 
-	ctrlFactory, err := factory.NewControllerFactory(logger, appCfg)
+	scanProxy, err := scanproxy.New(scanproxy.Config{Host: appCfg.Scan.Host}, &http.Client{}, logger)
 	if err != nil {
 		logger.Fatalf("could not start server: %s", err)
 	}
 
-	supplyCtrl, err := ctrlFactory.GetSupplyController()
+	healthCtrl, err := newHealthController(logger, appCfg)
 	if err != nil {
 		logger.Fatalf("could not start server: %s", err)
 	}
 
-	articlesCtrl, err := ctrlFactory.GetArticlesController()
-	if err != nil {
-		logger.Fatalf("could not start server: %s", err)
-	}
-
-	pricesCtrl, err := ctrlFactory.GetPricesController()
-	if err != nil {
-		logger.Fatalf("could not start server: %s", err)
-	}
-
-	healthCtrl, err := ctrlFactory.GetHealthController()
-	if err != nil {
-		logger.Fatalf("could not start server: %s", err)
-	}
-
-	dexCtrl, err := ctrlFactory.GetDexController()
-	if err != nil {
-		logger.Fatalf("could not start server: %s", err)
-	}
-
-	swapCtrl, err := ctrlFactory.GetSwapController()
-	if err != nil {
-		logger.Fatalf("could not start server: %s", err)
-	}
-
-	// Routes
-	e.GET("/api/supply/total", supplyCtrl.TotalSupplyHandler)
-	e.GET("/api/supply/circulating", supplyCtrl.CirculatingSupplyHandler)
-	e.GET("/api/articles/medium", articlesCtrl.MediumArticlesHandler)
-	e.GET("/api/prices", pricesCtrl.PricesHandler)
+	// Routes: the health checks are answered here, everything else under /api
+	// comes from BZE Scan (echo matches the static routes before the wildcard).
 	e.GET("/api/health/market", healthCtrl.DexMarketCheckHandler)
-	e.GET("/api/health/aggregator", healthCtrl.DexAggregatorCheckHandler)
 	e.GET("/api/health/nodes", healthCtrl.NodesCheckHandler)
 	e.POST("/api/health/balances", healthCtrl.CheckBalancesHandler)
-
-	//dex related endpoints
-	e.GET("/api/dex/tickers", dexCtrl.TickersHandler)
-	e.GET("/api/dex/orders", dexCtrl.OrdersHandler)
-	e.GET("/api/dex/history", dexCtrl.HistoryHandler)
-	e.GET("/api/dex/intervals", dexCtrl.IntervalsHandler)
-	e.GET("/api/dex/swaps", swapCtrl.AddressSwapHistoryHandler)
+	e.GET("/api/*", scanProxy.Handler())
 
 	// Start server
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", appCfg.Server.Port)))
+}
+
+func newHealthController(logger logrus.FieldLogger, cfg *config.AppConfig) (*controller.HealthCheckController, error) {
+	dp, err := client.NewBlockchainQueryClient(cfg.Blockchain.RestHost)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate blockchain query client: %w", err)
+	}
+
+	var healthClients map[string]appService.NodeInfoClient
+	if len(cfg.Blockchain.HealthNodes) > 0 {
+		healthClients = make(map[string]appService.NodeInfoClient, len(cfg.Blockchain.HealthNodes))
+		for hostName, hostAddr := range cfg.Blockchain.HealthNodes {
+			rpc, err := client.GetRpcClient(hostAddr)
+			if err != nil {
+				return nil, err
+			}
+
+			healthClients[hostName] = rpc
+		}
+	}
+
+	service, err := appService.NewHealthService(logger, appService.NewInMemoryCache(), dp, healthClients)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate health service: %w", err)
+	}
+
+	balanceHealthService, err := health.NewBalancesHealth(cfg.PrefixedEndpoints)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate balance health service: %w", err)
+	}
+
+	return controller.NewHealthCheckController(logger, service, balanceHealthService)
 }

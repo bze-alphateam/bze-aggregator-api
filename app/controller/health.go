@@ -18,7 +18,6 @@ type BalanceHealthCheckService interface {
 
 type MarketHealthCheckService interface {
 	GetMarketHealth(marketId string, minutesAgo int) dto.MarketHealth
-	GetAggregatorHealth(minutesAgo int) dto.AggregatorHealth
 	GetNodesHealth() dto.NodesHealth
 }
 
@@ -57,19 +56,6 @@ func (c *HealthCheckController) DexMarketCheckHandler(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, c.service.GetMarketHealth(params.MarketId, params.Minutes))
-}
-
-func (c *HealthCheckController) DexAggregatorCheckHandler(ctx echo.Context) error {
-	l := c.getMethodLogger("DexAggregatorCheckHandler")
-
-	params, err := request.NewAggregatorHealthRequest(ctx)
-	if err != nil {
-		l.WithError(err).Error("error when creating request parameters")
-
-		return ctx.JSON(http.StatusBadRequest, request.NewErrResponse("invalid request"))
-	}
-
-	return ctx.JSON(http.StatusOK, c.service.GetAggregatorHealth(params.Minutes))
 }
 
 func (c *HealthCheckController) NodesCheckHandler(ctx echo.Context) error {
