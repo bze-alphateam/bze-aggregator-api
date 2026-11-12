@@ -5,14 +5,14 @@
 # directory (godotenv) — not from process environment variables. Mount the
 # runtime .env at /app/.env.
 
-FROM golang:1.26 AS build
+FROM golang:1.26.11 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o /bze-agg .
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot
 WORKDIR /app
 COPY --from=build /bze-agg /bze-agg
 EXPOSE 8888
